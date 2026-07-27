@@ -149,6 +149,28 @@ current local database, which already has the right types and holds zero rows.
       is `backend/models/weights/`. Would have broken Phase 6.3, which follows the
       README literally.
 
+### 1.8 STM feature contributions are not per-image
+
+Found in live testing. `results.generate_feature_importance` reads
+`model.lgbm_model.feature_importances_`, which is a global property of the
+trained model, so every image returns the same breakdown. Confirmed: a Minecraft
+screenshot and a Gemini-generated image both gave HOG 86.5, LBP 7, Colour 3.3,
+DCT 2.3, Noise 1. The caption claims the chart shows how much each group
+influenced this prediction, which is false.
+
+- [ ] Use LightGBM per-prediction contributions:
+      `lgbm_model.predict(features, pred_contrib=True)` returns SHAP values per
+      feature plus a trailing bias term. Sum absolute contributions within each
+      group in `FEATURE_GROUP_SLICES`, drop the bias term, normalise to
+      percentages
+- [ ] `STMDetector` wraps the classifier and discards the feature vector inside
+      `forward`, so expose it rather than recomputing the features separately
+- [ ] Reword the caption to match what the chart now shows
+- [ ] **Verify:** two different images produce different breakdowns
+- [ ] Fallback if per-prediction contributions prove impractical: relabel the
+      chart as global model feature importance and reword the caption to match.
+      Try the real fix first.
+
 ---
 
 ## Phase 2: Backend implementation
@@ -313,6 +335,11 @@ tests the software. This is a named gap in your feedback.
 - [ ] `/api/batch` rejects zip with no valid images (400)
 - [ ] `/api/batch` rejects malformed zip (400)
 - [ ] `/api/history` returns rows, search filters, category filters
+- [ ] `httpx` was installed into `backend/venv` by hand on 27 July 2026 because
+      `TestClient` needs it. It is in no requirements file, so a fresh clone
+      cannot run these tests. Decide when starting this section whether it goes
+      in `app/backend/requirements.txt` or a separate `requirements-dev.txt`, and
+      add it either way. Do not leave it undocumented.
 
 ### 3.3 NFR verification
 
@@ -428,6 +455,12 @@ carries the most marks per hour of any work remaining.
       sits outside both training classes. Use the Minecraft result as the worked
       example (CNN 0.3%, Hybrid 0.1%, STM 25.2%, FFT 68% P(AI)), noting FFT's
       sensitivity to periodicity as the likely cause of its disagreement. See 2.8.
+- [ ] Worked example on a post-cutoff generator: a Gemini Flash 3.6 image, a
+      generator absent from the training data, gave CNN 0.1% P(AI), Hybrid 0.0%,
+      STM 38.1% and FFT 53.9%. Only FFT reached the correct verdict, and only at
+      borderline confidence. Present it as an illustration of the MNW
+      generalisation finding rather than as evidence in its own right, since
+      n=1.
 
 ---
 
