@@ -40,13 +40,14 @@ app.add_middleware(
 async def analyze_image(
     file: UploadFile = File(...),
     model_name: str = Form(...),
+    session_id: str | None = Form(default=None),
 ):
     image_bytes = await file.read()
 
     if not pipeline.validate_image(image_bytes):
         raise HTTPException(status_code=400, detail="Invalid or corrupted image file.")
 
-    session_id = session_tracker.create_session()
+    session_id = session_tracker.resolve_session(session_id)
     request_id = str(uuid.uuid4())
     image_tensor = pipeline.preprocess(image_bytes)
     raw = pipeline.predict(image_tensor, model_name)
@@ -70,6 +71,8 @@ async def analyze_image(
         "latency_ms": raw["latency_ms"],
     })
 
+    # echoed back so the client can send it again and stay in one session
+    formatted["session_id"] = session_id
     return formatted
 
 
@@ -78,9 +81,10 @@ async def analyze_image(
 async def analyze_batch(
     file: UploadFile = File(...),
     model_name: str = Form(...),
+    session_id: str | None = Form(default=None),
 ):
     zip_bytes = await file.read()
-    session_id = session_tracker.create_session()
+    session_id = session_tracker.resolve_session(session_id)
     batch_id = str(uuid.uuid4())
 
     files = batch_processor.extract_zip(zip_bytes)
@@ -113,7 +117,9 @@ async def analyze_batch(
             "latency_ms": r["latency_ms"],
         })
 
-    return results_handler.format_batch_summary(raw_results)
+    summary = results_handler.format_batch_summary(raw_results)
+    summary["session_id"] = session_id
+    return summary
 
 
 # thin pass-through; filtering is done in the DB layer

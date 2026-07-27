@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { analyzeBatch } from '../api/api'
+import { useSession } from '../session'
 
 const MODELS = [
   { key: 'cnn', label: 'CNN', sub: 'Spatial - ResNet-50' },
@@ -21,13 +22,18 @@ export default function BatchPage() {
   const [error, setError] = useState(null)
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef()
+  const { sessionId, setSessionId } = useSession()
 
   const handleFile = (f) => { if (!f) return; setZip(f); setResult(null); setError(null) }
   // zip is fully read into memory before inference; large batches may be slow
   const handleAnalyze = async () => {
     if (!zip) return
     setLoading(true); setError(null)
-    try { const { data } = await analyzeBatch(zip, model); setResult(data) }
+    try {
+      const { data } = await analyzeBatch(zip, model, sessionId)
+      setResult(data)
+      if (data.session_id) setSessionId(data.session_id)
+    }
     catch (e) { setError(e.response?.data?.detail || 'Batch analysis failed.') }
     finally { setLoading(false) }
   }

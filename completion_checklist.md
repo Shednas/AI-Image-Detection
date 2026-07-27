@@ -59,9 +59,10 @@ batch writes P(real) into the same column, with nothing to tell the two apart.
 - [x] `HistoryPage.jsx`: add a P(AI) column. `db.get_history` returned the value
       as `score` and the frontend discarded it, so History displayed no
       probability at all. The key is now `p_ai`, matching the rest of the codebase.
-- [x] ~~Truncate all four tables~~ Not required: all four tables hold zero rows.
-      The column type also changed, so a stale database needs DROP rather than
-      TRUNCATE. See 1.6.
+- [x] ~~Truncate all four tables~~ Not required: the tables were empty when the
+      fixes landed, so no row ever held the old meaning. Rows written since are
+      all P(AI). The column type also changed, so a stale database elsewhere needs
+      DROP rather than TRUNCATE. See 1.6.
 - [ ] **Verify:** same AI image through Analyze, Batch, and History shows one identical percentage
 
 ### 1.3 Grad-CAM direction
@@ -85,15 +86,21 @@ means toward "real". The heatmap explains the wrong verdict half the time.
 Every request calls `create_session()`, so the sessions table gets one row per
 request and grouping is meaningless.
 
-- [ ] Accept optional `session_id` on both POST endpoints
-- [ ] Reuse when valid, create only when absent
-- [ ] Validate by existence in the `sessions` table, not just by UUID parse.
+- [x] Accept optional `session_id` on both POST endpoints
+- [x] Reuse when valid, create only when absent
+- [x] Validate by existence in the `sessions` table, not just by UUID parse.
       `session.validate_session` only checks that the string parses, so a
       well-formed but unknown id would pass and then violate the foreign key on
       `inference_requests.session_id`. Fall back to creating a new session when
-      the id is well formed but unknown.
-- [ ] Frontend: store session id in React state, send on every request
-- [ ] **Verify:** three uploads in one browser session produce one sessions row
+      the id is well formed but unknown. Implemented as
+      `SessionTracker.resolve_session`, backed by `db.session_exists`.
+- [x] Frontend: store session id in React state, send on every request. Held in a
+      `SessionProvider` context above the router so Analyze and Batch share one id.
+      Both endpoints echo `session_id` back in the response.
+- [x] **Verify:** the live database shows seven consecutive requests sharing a
+      single session id, where the old code would have written seven rows into
+      `sessions`. Unit checks also confirm a well-formed but unknown id is
+      refused, and that the foreign key would have rejected it (IntegrityError).
 
 ### 1.5 Truncated file validation
 

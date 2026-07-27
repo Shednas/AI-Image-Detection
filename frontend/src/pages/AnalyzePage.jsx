@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { analyzeImage } from '../api/api'
+import { useSession } from '../session'
 
 const MODELS = [
   { key: 'cnn', label: 'CNN', sub: 'Spatial - ResNet-50' },
@@ -160,6 +161,7 @@ export default function AnalyzePage() {
   const [error, setError] = useState(null)
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef()
+  const { sessionId, setSessionId } = useSession()
 
   // reset result state so stale data doesn't persist alongside the new file
   const handleFile = (f) => {
@@ -170,7 +172,11 @@ export default function AnalyzePage() {
   const handleAnalyze = async () => {
     if (!image) return
     setLoading(true); setError(null)
-    try { const { data } = await analyzeImage(image, model); setResult(data) }
+    try {
+      const { data } = await analyzeImage(image, model, sessionId)
+      setResult(data)
+      if (data.session_id) setSessionId(data.session_id)
+    }
     catch (e) { setError(e.response?.data?.detail || 'Analysis failed. Is the backend running?') }
     finally { setLoading(false) }
   }

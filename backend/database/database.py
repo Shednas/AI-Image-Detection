@@ -61,6 +61,20 @@ class DatabaseManager:
         finally:
             db.close()    
 
+    # the sessions row has to exist before anything references it, so callers
+    # check here rather than trusting a client-supplied id
+    def session_exists(self, session_id: str) -> bool:
+        db = self.SessionLocal()
+        try:
+            row = (
+                db.query(SessionRecord.session_id)
+                .filter(SessionRecord.session_id == session_id)
+                .first()
+            )
+            return row is not None
+        finally:
+            db.close()
+
     def save_batch(self, batch_id: str, session_id: str, total_files: int) -> None:
         db = self.SessionLocal()
         try:
