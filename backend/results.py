@@ -120,10 +120,11 @@ class ResultsHandler:
 
         if model_name == "stm":
             viz["feature_importance"] = {
-                "data": self.generate_feature_importance(model) if model is not None else None,
+                "data": self._safe_feature_importance(model, image_tensor) if model is not None else None,
                 "description": (
-                    "Feature contribution shows how much each handcrafted feature group influenced the LightGBM prediction. "
-                    "Higher percentage means that group was more important for the verdict."
+                    "Feature contribution shows how much each handcrafted feature group moved the LightGBM "
+                    "prediction for this image, measured as per-prediction SHAP values. Higher percentage "
+                    "means that group carried more weight in this particular verdict."
                 ),
             }
 
@@ -171,10 +172,28 @@ class ResultsHandler:
         Image.fromarray(colored).save(buf, format='PNG')
         return base64.b64encode(buf.getvalue()).decode('utf-8')
 
-    # sum importances across feature groups for a readable breakdown
-    def generate_feature_importance(self, model):
-        importances = model.lgbm_model.feature_importances_
-        groups = {name: float(importances[sl].sum()) for name, sl in FEATURE_GROUP_SLICES.items()}
+    # feature extraction and the LightGBM call can both raise; a failed chart
+    # should not cost the caller the verdict it came for
+    def _safe_feature_importance(self, model, image_tensor):
+        try:
+            return self.generate_feature_importance(model, image_tensor)
+        except Exception as e:
+            print(f"Feature contribution failed: {e}")
+            return None
+
+    # per-prediction SHAP contributions, not feature_importances_. The latter is
+    # a property of the trained model, so it returned an identical breakdown for
+    # every image while the caption claimed it explained this one.
+    def generate_feature_importance(self, model, image_tensor):
+        if image_tensor is None:
+            return None
+        features = model.extract_features(image_tensor)
+        contributions = model.lgbm_model.predict(features, pred_contrib=True)
+        # last column is the bias term, which belongs to no feature group.
+        # absolute values because a group that argues against the verdict still
+        # influenced it, and signed sums would cancel within a group
+        per_feature = np.abs(contributions[0, :-1])
+        groups = {name: float(per_feature[sl].sum()) for name, sl in FEATURE_GROUP_SLICES.items()}
         total = sum(groups.values()) or 1.0
         return {k: round(v / total * 100, 1) for k, v in groups.items()}
 

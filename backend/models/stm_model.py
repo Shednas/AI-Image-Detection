@@ -113,9 +113,14 @@ class STMDetector(nn.Module):
         raw = (x.cpu() * self._std.cpu() + self._mean.cpu()).clamp(0.0, 1.0)
         return (raw * 255).byte().numpy().transpose(0, 2, 3, 1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    # exposed because per-prediction feature contributions need the same vector
+    # the classifier scored, and forward discards it
+    def extract_features(self, x: torch.Tensor) -> np.ndarray:
         images_np = self._to_uint8_hwc(x)
-        features  = np.stack([self.feature_extractor.extract(img) for img in images_np])
+        return np.stack([self.feature_extractor.extract(img) for img in images_np])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features  = self.extract_features(x)
         proba     = self.lgbm_model.predict_proba(features)[:, 1]
         proba     = np.clip(proba, 1e-7, 1.0 - 1e-7)
         logits    = np.log(proba / (1.0 - proba))

@@ -158,18 +158,30 @@ screenshot and a Gemini-generated image both gave HOG 86.5, LBP 7, Colour 3.3,
 DCT 2.3, Noise 1. The caption claims the chart shows how much each group
 influenced this prediction, which is false.
 
-- [ ] Use LightGBM per-prediction contributions:
+- [x] Use LightGBM per-prediction contributions:
       `lgbm_model.predict(features, pred_contrib=True)` returns SHAP values per
       feature plus a trailing bias term. Sum absolute contributions within each
       group in `FEATURE_GROUP_SLICES`, drop the bias term, normalise to
-      percentages
-- [ ] `STMDetector` wraps the classifier and discards the feature vector inside
-      `forward`, so expose it rather than recomputing the features separately
-- [ ] Reword the caption to match what the chart now shows
-- [ ] **Verify:** two different images produce different breakdowns
-- [ ] Fallback if per-prediction contributions prove impractical: relabel the
-      chart as global model feature importance and reword the caption to match.
-      Try the real fix first.
+      percentages. Absolute rather than signed, because a group arguing against
+      the verdict still influenced it and signed sums cancel within a group.
+- [x] `STMDetector.extract_features` exposes the vector that `forward` used to
+      compute and discard, so the contributions are taken from the same features
+      the classifier scored rather than a second extraction
+- [x] Reword the caption to match what the chart now shows
+- [x] **Verify:** three structurally different images (gradient, noise, tiled
+      blocks) give three different breakdowns, HOG ranging 62.0 to 89.8 and LBP
+      5.7 to 21.5. The old code returned HOG 86.5, LBP 7, DCT 2.3, Colour 3.3,
+      Noise 1 for all three, matching the values seen in live testing. Feature
+      vector is 1822 long and `FEATURE_GROUP_SLICES` covers exactly 1822, with
+      the 1823rd contribution column dropped as the bias term. Checked
+      27 July 2026.
+- [x] ~~Fallback to global importance~~ Not needed, the real fix works.
+- [ ] **Caveat for the report and for 2.8.** HOG is 1764 of the 1822 features, so
+      summing within a group still favours the largest group and HOG dominates
+      most breakdowns. The numbers are now per-image and honest, but the chart
+      compares groups of very unequal size. Either say so in the caption or show
+      a per-feature mean alongside the group total. Decide during 2.8.2, where
+      the captions are being rewritten anyway.
 
 ---
 
