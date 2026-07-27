@@ -52,7 +52,7 @@ batch writes P(real) into the same column, with nothing to tell the two apart.
 - [x] `main.py` — store `raw["p_ai"]` in `predicted_probability` (analyze endpoint)
 - [x] `main.py` — same two fields in the batch endpoint loop
 - [x] `BatchPage.jsx` — render `row.p_ai`
-- [ ] Rename `probability` to `p_real` throughout (pipeline, results, batch rows).
+- [x] Rename `probability` to `p_real` throughout (pipeline, results, batch rows).
       Do not drop it: `format_single` still needs it for `confidence_pct`.
       Renaming makes any stale `row.probability` reference fail visibly rather
       than silently invert.

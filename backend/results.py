@@ -33,14 +33,14 @@ FEATURE_GROUP_SLICES = {
 
 
 # map continuous P(AI) to a human-readable confidence zone label
-def _probability_zone(prob: float) -> dict:
-    if prob < 0.2:
+def _probability_zone(p_ai: float) -> dict:
+    if p_ai < 0.2:
         return {"key": "very_likely_real", "label": "Very likely authentic"}
-    if prob < 0.4:
+    if p_ai < 0.4:
         return {"key": "likely_real", "label": "Likely authentic"}
-    if prob < 0.6:
+    if p_ai < 0.6:
         return {"key": "uncertain", "label": "Borderline - uncertain"}
-    if prob < 0.8:
+    if p_ai < 0.8:
         return {"key": "likely_ai", "label": "Likely AI-generated"}
     return {"key": "very_likely_ai", "label": "Very likely AI-generated"}
 
@@ -48,16 +48,16 @@ def _probability_zone(prob: float) -> dict:
 class ResultsHandler:
     # assemble the full API response for a single-image analysis
     def format_single(self, raw_output, image_bytes, model_name, image_tensor=None, model=None):
-        prob = raw_output["probability"]   # P(real)
+        p_real = raw_output["p_real"]
         p_ai = raw_output["p_ai"]          # computed once, in the pipeline
 
         return {
             "model_name": raw_output["model_name"],
             "verdict": raw_output["verdict"],
             "latency_ms": raw_output["latency_ms"],
-            "probability": prob,
+            "p_real": p_real,
             "ai_pct": round(p_ai * 100, 1),
-            "confidence_pct": round(max(prob, p_ai) * 100, 1),
+            "confidence_pct": round(max(p_real, p_ai) * 100, 1),
             "zone": _probability_zone(p_ai),
             "model_explanation": MODEL_EXPLANATIONS.get(raw_output["model_name"], ""),
             "verdict_explanation": VERDICT_EXPLANATIONS.get(raw_output["verdict"], ""),

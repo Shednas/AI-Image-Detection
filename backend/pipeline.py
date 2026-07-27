@@ -96,14 +96,16 @@ class InferencePipeline:
         t0 = time.perf_counter()
         with torch.no_grad():
             logit = model(image_tensor).squeeze()
-            probability = torch.sigmoid(logit).item()
+            p_real = torch.sigmoid(logit).item()
         latency_ms = int((time.perf_counter() - t0) * 1000)
 
+        # named p_real rather than probability so a stale caller fails loudly
+        # instead of silently reading P(real) where it wanted P(AI)
         return {
             "model_name": MODEL_DISPLAY_NAMES[model_name],
-            "probability": round(probability, 4),   # P(real), from training mapping
-            "p_ai": round(1.0 - probability, 4),    # what the UI displays
-            "verdict": "AUTHENTIC" if probability >= 0.5 else "AI_GENERATED",
+            "p_real": round(p_real, 4),          # training mapping is {ai: 0, real: 1}
+            "p_ai": round(1.0 - p_real, 4),      # what the UI displays
+            "verdict": "AUTHENTIC" if p_real >= 0.5 else "AI_GENERATED",
             "latency_ms": latency_ms,
         }
 
