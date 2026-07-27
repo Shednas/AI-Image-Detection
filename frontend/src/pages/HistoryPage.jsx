@@ -62,17 +62,17 @@ export default function HistoryPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-latte border-b border-cappuccino/40">
-              {['Record ID', 'Timestamp', 'File Name', 'Model', 'Verdict'].map(h => (
+              {['Record ID', 'Timestamp', 'File Name', 'Model', 'Verdict', 'P(AI)'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-bold text-roast uppercase tracking-wide">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-cappuccino/20">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-12 text-center text-roast text-sm">Loading...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-roast text-sm">Loading...</td></tr>
             ) : records.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center">
+                <td colSpan={6} className="px-4 py-12 text-center">
                   <p className="text-roast text-sm">No records found</p>
                   <p className="text-roast text-xs mt-1">Analyze an image to see history here</p>
                 </td>
@@ -88,6 +88,9 @@ export default function HistoryPage() {
                     ? <span className="text-xs font-bold text-espresso">AI Generated</span>
                     : <span className="text-xs font-bold text-roast">Authentic</span>
                   }
+                </td>
+                <td className="px-4 py-3 text-xs text-roast tabular-nums">
+                  {r.p_ai != null ? `${(r.p_ai * 100).toFixed(1)}%` : '-'}
                 </td>
               </tr>
             ))}

@@ -56,9 +56,9 @@ batch writes P(real) into the same column, with nothing to tell the two apart.
       Do not drop it: `format_single` still needs it for `confidence_pct`.
       Renaming makes any stale `row.probability` reference fail visibly rather
       than silently invert.
-- [ ] `HistoryPage.jsx` — add a P(AI) column. `db.get_history` already returns
-      `score` and the frontend discards it, so History currently displays no
-      probability at all and the verification step below cannot be run without this.
+- [x] `HistoryPage.jsx` — add a P(AI) column. `db.get_history` returned the value
+      as `score` and the frontend discarded it, so History displayed no
+      probability at all. The key is now `p_ai`, matching the rest of the codebase.
 - [x] ~~Truncate all four tables~~ Not required: all four tables hold zero rows.
       The column type also changed, so a stale database needs DROP rather than
       TRUNCATE. See 1.6.

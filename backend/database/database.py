@@ -113,7 +113,9 @@ class DatabaseManager:
                     "file_name":  req.file_name,
                     "model_name": out.model_name,
                     "verdict":    req.final_verdict,
-                    "score":      float(req.consensus_score),
+                    # consensus_score holds P(AI); named p_ai here so the History
+                    # table cannot drift back into displaying the wrong direction
+                    "p_ai":       float(req.consensus_score),
                 }
                 for req, out in records
             ]

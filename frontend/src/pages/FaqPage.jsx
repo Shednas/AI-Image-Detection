@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "What is the P(AI) score?",
-    a: "It is the raw probability the model assigns to the image being AI-generated. Zero means the model is confident it is authentic. One means it is confident it is AI. The verdict flips at 0.5. Confidence shows how far the score sits from that boundary."
+    a: "It is the raw probability the model assigns to the image being AI-generated. Zero means the model is confident it is authentic. One means it is confident it is AI. The verdict flips at 0.5. Confidence is the probability of whichever side won, so it runs from 50% at that boundary up to 100% at either extreme."
   },
   {
     q: "Why does the STM model take longer?",
@@ -127,7 +127,7 @@ export default function FaqPage() {
             <div className="space-y-0">
               {[
                 { name: 'P(AI)', desc: 'Raw probability the image is AI-generated. Below 0.5 = authentic verdict. Above 0.5 = AI verdict.' },
-                { name: 'Confidence', desc: 'How far the probability sits from the 0.5 boundary. 95% means the model is strongly committed to its verdict.' },
+                { name: 'Confidence', desc: 'The probability of whichever side won, so it runs from 50% at the 0.5 boundary up to 100% at either extreme. 95% means the model is strongly committed to its verdict.' },
                 { name: 'AUC-ROC', desc: 'Threshold-independent quality measure across all operating points. 1.0 is perfect, 0.5 is random chance.' },
                 { name: 'Contrast', desc: 'Pixel brightness variation scaled 0-100. Natural images typically score 30-70. AI smoothing can push this lower.' },
                 { name: 'Sensor Noise', desc: 'High-frequency residual after subtracting a blurred version. Real sensors leave physical noise patterns that AI images tend to lack.' },
