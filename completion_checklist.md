@@ -95,8 +95,9 @@ request and grouping is meaningless.
       the id is well formed but unknown. Implemented as
       `SessionTracker.resolve_session`, backed by `db.session_exists`.
 - [x] Frontend: store session id in React state, send on every request. Held in a
-      `SessionProvider` context above the router so Analyze and Batch share one id.
-      Both endpoints echo `session_id` back in the response.
+      `SessionProvider` context above the router so Analyze and Batch share one id,
+      and mirrored into `sessionStorage` so a refresh mid-demo does not fragment
+      the grouping. Both endpoints echo `session_id` back in the response.
 - [x] **Verify:** the live database shows seven consecutive requests sharing a
       single session id, where the old code would have written seven rows into
       `sessions`. Unit checks also confirm a well-formed but unknown id is
