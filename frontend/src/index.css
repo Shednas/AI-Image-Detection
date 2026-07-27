@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply antialiased bg-cream text-espresso; }
+}
+
+@layer components {
+  .card { @apply bg-latte rounded-lg border border-cappuccino/60; }
+  .upload-outer { @apply bg-latte rounded-xl p-4 border border-cappuccino/60 cursor-pointer transition-all duration-200; }
+  .upload-inner { @apply bg-cappuccino/30 rounded-xl flex flex-col items-center justify-center py-10 px-6 min-h-40 transition-colors duration-150 hover:bg-cappuccino/40; }
+  .model-btn { @apply bg-cream rounded-md border border-cappuccino/60 px-4 py-3 text-left transition-all duration-150 hover:border-roast; }
+  .model-btn-on { @apply bg-espresso text-cream border-espresso; }
+  .btn-primary { @apply bg-espresso text-cream rounded-md px-10 py-3 font-semibold text-sm hover:bg-roast disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150; }
+  .btn-secondary { @apply bg-transparent text-espresso rounded-md px-5 py-2.5 border border-cappuccino font-medium text-sm hover:bg-latte transition-colors duration-150; }
+  .section-label { @apply text-xs font-bold text-roast uppercase tracking-widest mb-3; }
+  .page-title { @apply text-4xl font-black tracking-tight text-espresso mb-6; }
+  .conflict-note { @apply bg-latte border border-cappuccino rounded-lg p-4 text-sm text-roast; }
+}
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeIn 0.2s ease-out; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { animation: spin 0.7s linear infinite; }
