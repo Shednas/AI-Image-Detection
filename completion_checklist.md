@@ -208,6 +208,68 @@ system, and it is what the recorded demonstration depends on.
 - [ ] Search and category filter both work
 - [ ] **Screenshot everything.** These become report figures and demo material
 
+### 2.8 Visualisation credibility
+
+From live testing on 27 July 2026. A Minecraft screenshot returned 0.3% P(AI)
+from CNN, 0.1% from Hybrid, 25.2% from STM and 68% from FFT. Three models call it
+authentic; FFT disagrees because blocky repeated textures produce periodic
+frequency signatures. Contrast 19.8 and sensor noise 5.4 are both correct
+readings for a render, but the panels labelled them "below natural range" and
+"low camera fingerprint", which reads as evidence of AI origin when it is not.
+
+#### 2.8.1 Split the results panel into two labelled groups
+
+- [ ] "What this model analysed" holds only evidence the selected model actually
+      used: Grad-CAM for CNN and Hybrid, spectrogram for FFT and Hybrid, feature
+      contributions for STM
+- [ ] "Image properties" holds contrast, sensor noise and RGB, labelled as general
+      characteristics computed from the image rather than model inputs
+- [ ] Exception: for STM, noise residual and colour statistics are genuine
+      features, so they stay in the evidence group
+
+#### 2.8.2 Neutralise the generic metric captions
+
+- [ ] State what each number measures and its typical range, nothing more
+- [ ] Remove every claim about what a value suggests regarding AI origin,
+      including the three "what to look for" lines under the RGB histogram
+- [ ] Remove the "Why do metrics differ from the verdict?" box, which exists only
+      to explain away the claims being removed above
+
+#### 2.8.3 Non-photographic content notice
+
+- [ ] When contrast is below roughly 25 and sensor noise below roughly 8, show a
+      note: the models are trained on photographs against AI-generated images, so
+      renders, screenshots and vector graphics fall outside both training classes
+      and the verdict is less reliable
+
+#### 2.8.4 Spectrogram reference comparison
+
+- [ ] Show the uploaded image's spectrum alongside two static references, one
+      typical photograph and one typical diffusion output, three panels side by side
+- [ ] Generate the two references once from existing dataset samples and ship them
+      as static assets
+
+#### 2.8.5 Multi-model comparison view (optional, decide later)
+
+- [ ] Estimate the work before committing. `pipeline.predict_all` already exists,
+      so a mode that runs all four and shows the verdicts together would surface
+      model disagreement directly, which is the core research finding
+
+### 2.9 Model selector labels
+
+The selector currently calls FFT "Not Recommended" and Hybrid "Recommended".
+Those labels describe in-distribution performance only. The core research finding
+is the opposite for unseen modern generators: FFT detects 85.2% of MNW while
+Hybrid detects 1.4% and CNN 2.2%. As written, the application contradicts the
+dissertation and invites an obvious viva question.
+
+- [ ] Reword so the basis of each label is explicit, for example "Best
+      in-distribution accuracy" for Hybrid and "Best on unseen modern generators"
+      for FFT
+- [ ] Alternative: drop the recommendation language entirely and state each
+      model's strength
+- [ ] Same wording appears in both `AnalyzePage.jsx` and `BatchPage.jsx`
+
 ---
 
 ## Phase 3: Testing
@@ -348,6 +410,11 @@ carries the most marks per hour of any work remaining.
 - [ ] Chapter 6: updated Hybrid results if the fix worked
 - [ ] Chapter 6: multi-seed variance if completed
 - [ ] Chapter 7: revise future work to reflect what got done
+- [ ] State as a limitation that the system separates photographs from
+      AI-generated images, and that synthetic non-AI content such as game renders
+      sits outside both training classes. Use the Minecraft result as the worked
+      example (CNN 0.3%, Hybrid 0.1%, STM 25.2%, FFT 68% P(AI)), noting FFT's
+      sensitivity to periodicity as the likely cause of its disagreement. See 2.8.
 
 ---
 
