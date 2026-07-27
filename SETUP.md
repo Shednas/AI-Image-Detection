@@ -1,8 +1,8 @@
-# Setup Guide — AI Image Detection (Windows)
+# Setup Guide: AI Image Detection (Windows)
 
 ---
 
-## Step 1 — Install Node.js
+## Step 1: Install Node.js
 
 Download the LTS version from https://nodejs.org and run the installer.
 
@@ -14,7 +14,7 @@ npm --version
 
 ---
 
-## Step 2 — Install PostgreSQL
+## Step 2: Install PostgreSQL
 
 Download from https://www.postgresql.org/download/windows and run the installer.
 
@@ -25,10 +25,10 @@ During installation:
 
 Create the database after installation:
 
-**Option A — pgAdmin 4:**
-Open pgAdmin → right-click "Databases" → Create → Database → name it `ai_detection`
+**Option A, pgAdmin 4:**
+Open pgAdmin, right-click "Databases", then Create, then Database, then name it `ai_detection`
 
-**Option B — Command line:**
+**Option B, command line:**
 ```
 psql -U postgres
 CREATE DATABASE ai_detection;
@@ -37,7 +37,7 @@ CREATE DATABASE ai_detection;
 
 ---
 
-## Step 3 — Backend Setup
+## Step 3: Backend Setup
 
 Open a terminal and navigate to your backend folder.
 
@@ -93,11 +93,11 @@ uvicorn main:app --reload --port 8000
 
 The backend runs at http://localhost:8000
 The database tables are created automatically on first startup.
-Check http://localhost:8000/api/health — should return `{"status":"ok"}`.
+Check http://localhost:8000/api/health, which should return `{"status":"ok"}`.
 
 ---
 
-## Step 4 — Frontend Setup
+## Step 4: Frontend Setup
 
 Open a second terminal and navigate to your frontend folder.
 

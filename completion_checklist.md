@@ -9,7 +9,7 @@ Tick items as you go. Phases are ordered by dependency, not by importance.
 
 ---
 
-## Phase 0 — Repository setup
+## Phase 0: Repository setup
 
 Half a day. Do this before touching code so every fix lands in version control.
 
@@ -31,7 +31,7 @@ Half a day. Do this before touching code so every fix lands in version control.
 
 ---
 
-## Phase 1 — Bug fixes
+## Phase 1: Bug fixes
 
 Two days. These are live defects, not improvements. Two of them would visibly
 contradict themselves during the recorded demonstration.
@@ -46,17 +46,17 @@ analyze endpoint are already correct. The batch endpoint is the only live defect
 and it is the worst variant: analyze writes P(AI) into `consensus_score` while
 batch writes P(real) into the same column, with nothing to tell the two apart.
 
-- [x] `pipeline.py` — add `p_ai` to the `predict` return dict
-- [x] `results.py` — read `raw_output["p_ai"]` instead of recomputing `1.0 - prob`
-- [x] `main.py` — store `raw["p_ai"]` in `consensus_score` (analyze endpoint)
-- [x] `main.py` — store `raw["p_ai"]` in `predicted_probability` (analyze endpoint)
-- [x] `main.py` — same two fields in the batch endpoint loop
-- [x] `BatchPage.jsx` — render `row.p_ai`
+- [x] `pipeline.py`: add `p_ai` to the `predict` return dict
+- [x] `results.py`: read `raw_output["p_ai"]` instead of recomputing `1.0 - prob`
+- [x] `main.py`: store `raw["p_ai"]` in `consensus_score` (analyze endpoint)
+- [x] `main.py`: store `raw["p_ai"]` in `predicted_probability` (analyze endpoint)
+- [x] `main.py`: same two fields in the batch endpoint loop
+- [x] `BatchPage.jsx`: render `row.p_ai`
 - [x] Rename `probability` to `p_real` throughout (pipeline, results, batch rows).
       Do not drop it: `format_single` still needs it for `confidence_pct`.
       Renaming makes any stale `row.probability` reference fail visibly rather
       than silently invert.
-- [x] `HistoryPage.jsx` — add a P(AI) column. `db.get_history` returned the value
+- [x] `HistoryPage.jsx`: add a P(AI) column. `db.get_history` returned the value
       as `score` and the frontend discarded it, so History displayed no
       probability at all. The key is now `p_ai`, matching the rest of the codebase.
 - [x] ~~Truncate all four tables~~ Not required: all four tables hold zero rows.
@@ -110,7 +110,7 @@ during preprocessing.
 truncates to 2dp. We store `round(probability, 4)`, so 0.8734 became 0.87 and
 History disagreed with Analyze on the same image.
 
-- [x] Change both columns to `Numeric(6, 4)` — verified 27 July 2026 in
+- [x] Change both columns to `Numeric(6, 4)`, verified 27 July 2026 in
       `database.py:33` and `database.py:42`, and against the live `ai_detection`
       database, which reports `numeric(6,4)` on both columns
 
@@ -131,23 +131,23 @@ current local database, which already has the right types and holds zero rows.
 - [ ] Delete `batch_handler.get_batch_summary`, a dead duplicate of
       `results.format_batch_summary`. Keep the `results.py` version, which is the
       one Phase 3.1's batch summary test should target.
-- [x] `RUN.md` — weights path said `backend/models/checkpoints/`, actual location
+- [x] `RUN.md`: weights path said `backend/models/checkpoints/`, actual location
       is `backend/models/weights/`. Would have broken Phase 6.3, which follows the
       README literally.
 
 ---
 
-## Phase 2 — Backend implementation
+## Phase 2: Backend implementation
 
 Three to four days. This is what turns "partially integrated" into a working
 system, and it is what the recorded demonstration depends on.
 
 ### 2.1 Input validation
 
-- [ ] Max file size on `/api/analyze` (10MB, matching the zip limit) → 413
-- [ ] Extension and MIME check on `/api/analyze` → 415
+- [ ] Max file size on `/api/analyze` (10MB, matching the zip limit), returns 413
+- [ ] Extension and MIME check on `/api/analyze`, returns 415
 - [ ] `model_name` as a FastAPI `Enum` so bad values give an automatic 422
-- [ ] Reject empty uploads → 400
+- [ ] Reject empty uploads, returns 400
 
 ### 2.2 Error handling
 
@@ -162,8 +162,8 @@ system, and it is what the recorded demonstration depends on.
 - [ ] Check `zf.getinfo(name).file_size` before calling `zf.read`
 - [ ] Cap total files per zip (suggest 100)
 - [ ] Cap total uncompressed size (suggest 200MB)
-- [ ] Handle `zipfile.BadZipFile` → 400
-- [ ] Reject a zip containing zero valid images → 400 with a useful message
+- [ ] Handle `zipfile.BadZipFile`, returns 400
+- [ ] Reject a zip containing zero valid images, returns 400 with a useful message
 
 ### 2.4 Batch lifecycle
 
@@ -186,8 +186,8 @@ system, and it is what the recorded demonstration depends on.
 
 ### 2.7 End-to-end verification
 
-- [ ] Upload → inference → database write → visible in History (single)
-- [ ] Upload → inference → database write → visible in History (batch)
+- [ ] Upload, then inference, then database write, then visible in History (single)
+- [ ] Upload, then inference, then database write, then visible in History (batch)
 - [ ] All four models work through the UI
 - [ ] Grad-CAM renders for CNN and Hybrid
 - [ ] Spectrogram renders for FFT and Hybrid
@@ -197,22 +197,22 @@ system, and it is what the recorded demonstration depends on.
 
 ---
 
-## Phase 3 — Testing
+## Phase 3: Testing
 
 One week. Currently scored 6.5/10 because Chapter 6 evaluates models but never
 tests the software. This is a named gap in your feedback.
 
 ### 3.1 Unit tests (`pytest`)
 
-- [ ] `test_pipeline.py` — validate_image accepts valid, rejects corrupt and truncated
-- [ ] `test_pipeline.py` — preprocess output shape and dtype
-- [ ] `test_pipeline.py` — predict returns all expected keys
-- [ ] `test_pipeline.py` — unknown model name raises
-- [ ] `test_batch_handler.py` — extract_zip skips non-images and oversized entries
-- [ ] `test_batch_handler.py` — process_batch records per-file errors without aborting
-- [ ] `test_results.py` — probability zone boundaries (0.2, 0.4, 0.6, 0.8)
-- [ ] `test_results.py` — batch summary maths, including the empty case
-- [ ] `test_session.py` — UUID validation accepts and rejects correctly
+- [ ] `test_pipeline.py`: validate_image accepts valid, rejects corrupt and truncated
+- [ ] `test_pipeline.py`: preprocess output shape and dtype
+- [ ] `test_pipeline.py`: predict returns all expected keys
+- [ ] `test_pipeline.py`: unknown model name raises
+- [ ] `test_batch_handler.py`: extract_zip skips non-images and oversized entries
+- [ ] `test_batch_handler.py`: process_batch records per-file errors without aborting
+- [ ] `test_results.py`: probability zone boundaries (0.2, 0.4, 0.6, 0.8)
+- [ ] `test_results.py`: batch summary maths, including the empty case
+- [ ] `test_session.py`: UUID validation accepts and rejects correctly
 
 ### 3.2 API tests (`TestClient`)
 
@@ -231,7 +231,7 @@ tests the software. This is a named gap in your feedback.
 Each NFR needs a stated test and a pass criterion.
 
 - [ ] NFR accuracy: F1 above 0.75 on Stage 3 (already evidenced, cite the table)
-- [ ] NFR latency: verdict within 3000ms — measure per model, tabulate
+- [ ] NFR latency: verdict within 3000ms, measure per model, tabulate
 - [ ] NFR replaceability: swap a checkpoint, confirm no other file changes
 - [ ] NFR CPU deployability: run the full app with CUDA disabled
 
@@ -244,7 +244,7 @@ Each NFR needs a stated test and a pass criterion.
 
 ---
 
-## Phase 4 — Hybrid fix and research completion
+## Phase 4: Hybrid fix and research completion
 
 One week. Research is already A-grade, so this is upside rather than repair.
 
@@ -262,7 +262,7 @@ Either outcome is a result worth reporting. If MNW detection jumps, that is a
 headline finding. If it does not, "scale normalisation alone is insufficient,
 the imbalance is learned rather than purely dimensional" is equally publishable.
 
-- [ ] If normalisation alone fails, try projecting CNN 2048 → 256 so both
+- [ ] If normalisation alone fails, try projecting CNN 2048 down to 256 so both
       branches are literally equal size, then retrain and retest
 
 ### 4.2 Statistical validity
@@ -281,7 +281,7 @@ claim CNN and Hybrid are "effectively tied".
 
 ---
 
-## Phase 5 — Report fixes
+## Phase 5: Report fixes
 
 One week. Every item below comes directly from the interim feedback. This phase
 carries the most marks per hour of any work remaining.
@@ -303,7 +303,7 @@ carries the most marks per hour of any work remaining.
 - [ ] Re-export the class diagram at full page width (currently unreadable, p.18)
 - [ ] Re-export the Gantt chart (unreadable, p.57)
 - [ ] Cut the FAQ activity diagram (linear, no decision points, adds nothing)
-- [ ] Add a traceability table: FR → diagram → class that satisfies it
+- [ ] Add a traceability table: FR to diagram to class that satisfies it
 
 ### 5.3 Introduction and literature review (6/10)
 
@@ -321,7 +321,7 @@ carries the most marks per hour of any work remaining.
 
 ### 5.5 Report quality (6.6/10)
 
-- [ ] Fix "inspired with DEFEND" → "inspired by" (section 3.3)
+- [ ] Change "inspired with DEFEND" to "inspired by" (section 3.3)
 - [ ] Fix "approach each exploit" (section 1.3.1)
 - [ ] Fix the truncated FR5 sentence (p.12)
 - [ ] Remove the large blank block on p.15
@@ -338,7 +338,7 @@ carries the most marks per hour of any work remaining.
 
 ---
 
-## Phase 6 — Final deliverables
+## Phase 6: Final deliverables
 
 One week, plus the first week of September as buffer.
 
@@ -380,12 +380,12 @@ One week, plus the first week of September as buffer.
 
 | Week | Dates | Focus |
 |---|---|---|
-| 1 | 26 Jul – 1 Aug | Phase 0, 1, 2 — repo, bugs, backend |
-| 2 | 2 – 8 Aug | Phase 3 — testing |
-| 3 | 9 – 15 Aug | Phase 4 — Hybrid fix, reruns |
-| 4 | 16 – 22 Aug | Phase 5 — report fixes |
-| 5 | 23 – 31 Aug | Phase 6 — assembly, recording |
-| Buffer | 1 – 5 Sep | Overflow and final checks |
+| 1 | 26 Jul to 1 Aug | Phase 0, 1, 2: repo, bugs, backend |
+| 2 | 2 to 8 Aug | Phase 3: testing |
+| 3 | 9 to 15 Aug | Phase 4: Hybrid fix, reruns |
+| 4 | 16 to 22 Aug | Phase 5: report fixes |
+| 5 | 23 to 31 Aug | Phase 6: assembly, recording |
+| Buffer | 1 to 5 Sep | Overflow and final checks |
 
 ---
 

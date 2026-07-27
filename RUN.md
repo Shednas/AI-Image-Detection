@@ -22,7 +22,7 @@ PostgreSQL should run as a Windows service automatically. Verify it's running:
 **Option A: Check Services (Recommended)**
 1. Press `Win + R`, type `services.msc`, and press Enter
 2. Look for `postgresql-x64-15` (or your version)
-3. If it's not running, right-click → **Start**
+3. If it's not running, right-click and choose **Start**
 
 **Option B: Start via Command Line**
 ```powershell

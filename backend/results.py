@@ -49,7 +49,7 @@ class ResultsHandler:
     # assemble the full API response for a single-image analysis
     def format_single(self, raw_output, image_bytes, model_name, image_tensor=None, model=None):
         p_real = raw_output["p_real"]
-        p_ai = raw_output["p_ai"]          # computed once, in the pipeline
+        p_ai = raw_output["p_ai"] # computed once, in the pipeline
 
         return {
             "model_name": raw_output["model_name"],

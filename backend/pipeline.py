@@ -104,8 +104,8 @@ class InferencePipeline:
         # instead of silently reading P(real) where it wanted P(AI)
         return {
             "model_name": MODEL_DISPLAY_NAMES[model_name],
-            "p_real": round(p_real, 4),          # training mapping is {ai: 0, real: 1}
-            "p_ai": round(1.0 - p_real, 4),      # what the UI displays
+            "p_real": round(p_real, 4), # training mapping is {ai: 0, real: 1}
+            "p_ai": round(1.0 - p_real, 4), # what the UI displays
             "verdict": "AUTHENTIC" if p_real >= 0.5 else "AI_GENERATED",
             "latency_ms": latency_ms,
         }

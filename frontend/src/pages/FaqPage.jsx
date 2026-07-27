@@ -5,7 +5,7 @@ const FAQS = [
   },
   {
     q: "What kinds of images can I upload?",
-    a: "Any digital image — photographs, screenshots, scans, digital illustrations, social media exports, or AI art. The models were trained on a wide mix of real and AI-generated content, not just photography."
+    a: "Any digital image: photographs, screenshots, scans, digital illustrations, social media exports, or AI art. The models were trained on a wide mix of real and AI-generated content, not just photography."
   },
   {
     q: "Which model should I use?",
@@ -39,7 +39,7 @@ const MODELS = [
     full: 'Spatial CNN',
     speed: 'Fast',
     auc: '93.8%',
-    desc: 'ResNet-50 backbone trained to detect spatial artifacts — upsampling patterns, texture irregularities, and GAN-specific structural traces in the pixel domain.',
+    desc: 'ResNet-50 backbone trained to detect spatial artifacts: upsampling patterns, texture irregularities, and GAN-specific structural traces in the pixel domain.',
   },
   {
     name: 'FFT',
