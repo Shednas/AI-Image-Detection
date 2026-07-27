@@ -69,13 +69,16 @@ batch writes P(real) into the same column, with nothing to tell the two apart.
 `output.mean().backward()` always computes gradients toward higher logit, which
 means toward "real". The heatmap explains the wrong verdict half the time.
 
-- [ ] Pass the verdict into `_generate_gradcam`
-- [ ] Negate the backward target when verdict is `AI_GENERATED`
-- [ ] Update the caption text if the wording no longer fits
-- [ ] Caption fix for Hybrid: the heatmap hooks `cnn_branch.layer4`, so it
+- [x] Pass the verdict into `_generate_gradcam`
+- [x] Negate the backward target when verdict is `AI_GENERATED`
+- [x] Update the caption text if the wording no longer fits
+- [x] Caption fix for Hybrid: the heatmap hooks `cnn_branch.layer4`, so it
       reflects the spatial branch specifically, not the fused decision. Say so.
       The spectrogram covers the frequency branch, so both are represented.
-- [ ] **Verify:** heatmaps for a real image and an AI image highlight different regions
+- [x] **Verify:** same image and same CNN weights through both verdict paths
+      produce different heatmaps, 93.7% of pixels differing by more than 8/255.
+      Checked at unit level on 27 July 2026. The two-image version of this check
+      belongs in the Phase 2.7 pass, where the screenshots get taken anyway.
 
 ### 1.4 Session reuse
 
@@ -131,6 +134,9 @@ current local database, which already has the right types and holds zero rows.
 - [ ] Delete `batch_handler.get_batch_summary`, a dead duplicate of
       `results.format_batch_summary`. Keep the `results.py` version, which is the
       one Phase 3.1's batch summary test should target.
+- [x] `results.py`: `target_layer` was read before the `model is not None` guard,
+      so the None branch that guard exists for would have raised AttributeError
+      first. Moved inside the guard while fixing 1.3.
 - [x] `RUN.md`: weights path said `backend/models/checkpoints/`, actual location
       is `backend/models/weights/`. Would have broken Phase 6.3, which follows the
       README literally.

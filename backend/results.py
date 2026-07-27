@@ -88,18 +88,26 @@ class ResultsHandler:
         }
 
         if model_name in ("cnn", "hybrid"):
-            target_layer = model.backbone.layer4 if model_name == "cnn" else model.cnn_branch.layer4
-            heatmap_data = (
-                self._safe_gradcam(image_tensor, model, target_layer, image_bytes)
-                if model is not None and image_tensor is not None else None
+            heatmap_data = None
+            if model is not None and image_tensor is not None:
+                # hybrid holds its ResNet as cnn_branch, cnn wraps it as backbone
+                target_layer = model.backbone.layer4 if model_name == "cnn" else model.cnn_branch.layer4
+                heatmap_data = self._safe_gradcam(
+                    image_tensor, model, target_layer, image_bytes, raw_output["verdict"]
+                )
+
+            description = (
+                "Grad-CAM heatmap highlights the regions that pushed the model toward this "
+                "particular verdict. Red/warm areas contributed most strongly; blue/cool areas "
+                "had little influence."
             )
-            viz["heatmap"] = {
-                "data": heatmap_data,
-                "description": (
-                    "Grad-CAM heatmap highlights which regions most influenced the model's decision. "
-                    "Red/warm areas contributed most strongly toward the verdict; blue/cool areas had little influence."
-                ),
-            }
+            if model_name == "hybrid":
+                description += (
+                    " It is taken from the spatial branch, so it explains that branch rather than "
+                    "the fused decision. The frequency spectrogram covers the other branch."
+                )
+
+            viz["heatmap"] = {"data": heatmap_data, "description": description}
 
         if model_name in ("fft", "hybrid"):
             viz["spectrogram"] = {
@@ -174,15 +182,15 @@ class ResultsHandler:
         return f"{MODEL_EXPLANATIONS.get(model_name, '')} {VERDICT_EXPLANATIONS.get(verdict, '')}"
 
     # Grad-CAM can fail on some model/input combos; return None rather than 500
-    def _safe_gradcam(self, image_tensor, model, target_layer, image_bytes):
+    def _safe_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
         try:
-            return self._generate_gradcam(image_tensor, model, target_layer, image_bytes)
+            return self._generate_gradcam(image_tensor, model, target_layer, image_bytes, verdict)
         except Exception as e:
             print(f"Grad-CAM failed: {e}")
             return None
 
     # full backward pass through the target layer; hooks are always cleaned up in finally
-    def _generate_gradcam(self, image_tensor, model, target_layer, image_bytes):
+    def _generate_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
         activations = {}
         gradients = {}
         h_fwd = target_layer.register_forward_hook(lambda m, i, o: activations.update({'a': o}))
@@ -193,7 +201,14 @@ class ResultsHandler:
             with torch.enable_grad():
                 output = model(tensor)
                 model.zero_grad()
-                output.mean().backward()
+                # the single logit rises toward "real" under the {ai: 0, real: 1}
+                # training mapping, so ascending it explains an AUTHENTIC verdict.
+                # an AI verdict lives in the opposite direction and needs the
+                # target negated, otherwise the heatmap argues the other case
+                target = output.mean()
+                if verdict == "AI_GENERATED":
+                    target = -target
+                target.backward()
             act = activations['a'].squeeze(0)
             grd = gradients['g'].squeeze(0)
             weights = grd.mean(dim=(1, 2))
