@@ -1,10 +1,17 @@
 import os
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import create_engine, Column, String, Integer, Numeric, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
-load_dotenv()
+# anchored to backend/.env instead of letting find_dotenv search. Bare
+# load_dotenv() walks up to the filesystem root, so on a clone with no .env yet
+# it would silently adopt an unrelated one from a parent directory. It also
+# falls back to the working directory under a frozen build, which is how the
+# Phase 6.3 executable would run.
+ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(ENV_PATH)
 
 Base = declarative_base()
 
@@ -46,6 +53,13 @@ class ModelOutput(Base):
 class DatabaseManager:
     def __init__(self):
         self.db_url = os.getenv("DATABASE_URL")
+        # create_engine(None) raises an ArgumentError that says nothing about the
+        # missing file, which is the first thing a fresh clone hits
+        if not self.db_url:
+            raise RuntimeError(
+                f"DATABASE_URL is not set. Copy backend/.env.example to {ENV_PATH} "
+                "and set your PostgreSQL connection string."
+            )
         self.engine = create_engine(self.db_url)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         Base.metadata.create_all(bind=self.engine)

@@ -1,5 +1,6 @@
 import base64
 import io
+import logging
 
 import matplotlib
 matplotlib.use('Agg')
@@ -10,6 +11,7 @@ import torch
 from PIL import Image
 from scipy.ndimage import gaussian_filter
 
+logger = logging.getLogger("ai_detection.results")
 
 MODEL_EXPLANATIONS = {
     "Spatial_CNN": "The CNN model analyses spatial structure using deep convolutional features from a ResNet-50 backbone trained on ImageNet.",
@@ -177,8 +179,8 @@ class ResultsHandler:
     def _safe_feature_importance(self, model, image_tensor):
         try:
             return self.generate_feature_importance(model, image_tensor)
-        except Exception as e:
-            print(f"Feature contribution failed: {e}")
+        except Exception:
+            logger.exception("Feature contribution failed")
             return None
 
     # per-prediction SHAP contributions, not feature_importances_. The latter is
@@ -204,8 +206,8 @@ class ResultsHandler:
     def _safe_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
         try:
             return self._generate_gradcam(image_tensor, model, target_layer, image_bytes, verdict)
-        except Exception as e:
-            print(f"Grad-CAM failed: {e}")
+        except Exception:
+            logger.exception("Grad-CAM failed")
             return None
 
     # full backward pass through the target layer; hooks are always cleaned up in finally

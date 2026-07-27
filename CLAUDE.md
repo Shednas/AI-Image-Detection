@@ -1,5 +1,5 @@
 # CLAUDE.md
-
+Run claude --continue
 ## Project
 
 Dissertation comparing four AI image detection models: CNN, FFT, Hybrid and STM.

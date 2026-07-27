@@ -1,9 +1,11 @@
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from batch_handler import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES, BatchProcessor
 from database.database import DatabaseManager
@@ -16,6 +18,12 @@ from session import SessionTracker
 # are an image.
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_FILE_SIZE_MB = MAX_FILE_SIZE_BYTES // (1024 * 1024)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("ai_detection")
 
 db = DatabaseManager()
 session_tracker = SessionTracker(db)
@@ -40,6 +48,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# last line of defence: anything not already turned into an HTTPException gets
+# logged in full here and reduced to a generic message, so no stack trace or
+# internal path reaches the browser
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong on the server. Please try again."},
+    )
 
 
 # validate before inference to avoid pytorch errors on bad input
@@ -74,30 +94,43 @@ async def analyze_image(
     model_key = model_name.value
     session_id = session_tracker.resolve_session(session_id)
     request_id = str(uuid.uuid4())
-    image_tensor = pipeline.preprocess(image_bytes)
-    raw = pipeline.predict(image_tensor, model_key)
+
+    try:
+        image_tensor = pipeline.preprocess(image_bytes)
+        raw = pipeline.predict(image_tensor, model_key)
+    except Exception:
+        logger.exception("Inference failed for %r using %s", file.filename, model_key)
+        raise HTTPException(status_code=500, detail="Could not analyse this image.")
 
     model_obj = getattr(pipeline, model_key)
     formatted = results_handler.format_single(raw, image_bytes, model_key, image_tensor, model_obj)
 
-    db.save_inference_request({
-        "request_id": request_id,
-        "session_id": session_id,
-        "batch_id": None,
-        "file_name": file.filename,
-        "final_verdict": raw["verdict"],
-        "consensus_score": raw["p_ai"],
-    })
-    db.save_model_output({
-        "output_id": str(uuid.uuid4()),
-        "request_id": request_id,
-        "model_name": raw["model_name"],
-        "predicted_probability": raw["p_ai"],
-        "latency_ms": raw["latency_ms"],
-    })
+    # the verdict is what the caller asked for and the row is bookkeeping, so a
+    # database failure is reported alongside the result rather than replacing it
+    warning = None
+    try:
+        db.save_inference_request({
+            "request_id": request_id,
+            "session_id": session_id,
+            "batch_id": None,
+            "file_name": file.filename,
+            "final_verdict": raw["verdict"],
+            "consensus_score": raw["p_ai"],
+        })
+        db.save_model_output({
+            "output_id": str(uuid.uuid4()),
+            "request_id": request_id,
+            "model_name": raw["model_name"],
+            "predicted_probability": raw["p_ai"],
+            "latency_ms": raw["latency_ms"],
+        })
+    except Exception:
+        logger.exception("Could not save request %s for %r", request_id, file.filename)
+        warning = "This result could not be saved, so it will not appear in History."
 
     # echoed back so the client can send it again and stay in one session
     formatted["session_id"] = session_id
+    formatted["warning"] = warning
     return formatted
 
 
@@ -116,34 +149,58 @@ async def analyze_batch(
     if not files:
         raise HTTPException(status_code=400, detail="No valid images found in the zip file.")
 
-    db.save_batch(batch_id, session_id, total_files=len(files))
-    raw_results = batch_processor.process_batch(files, model_name.value, pipeline)
+    warning = None
+    batch_saved = True
+    try:
+        db.save_batch(batch_id, session_id, total_files=len(files))
+    except Exception:
+        # the per-image rows carry this batch_id as a foreign key, so without the
+        # batch row they cannot be written either
+        logger.exception("Could not save batch %s", batch_id)
+        batch_saved = False
+        warning = "This batch could not be saved, so it will not appear in History."
+
+    try:
+        raw_results = batch_processor.process_batch(files, model_name.value, pipeline)
+    except Exception:
+        logger.exception("Batch %s failed during processing", batch_id)
+        raise HTTPException(status_code=500, detail="Could not process this batch.")
 
     # store p_ai, not probability: the analyze endpoint writes P(AI) into these
     # same two columns, so writing P(real) here would put both meanings in one
     # column with nothing to tell them apart
+    unsaved = 0
     for r in raw_results:
-        if "error" in r:
+        if "error" in r or not batch_saved:
             continue
         request_id = str(uuid.uuid4())
-        db.save_inference_request({
-            "request_id": request_id,
-            "session_id": session_id,
-            "batch_id": batch_id,
-            "file_name": r["file_name"],
-            "final_verdict": r["verdict"],
-            "consensus_score": r["p_ai"],
-        })
-        db.save_model_output({
-            "output_id": str(uuid.uuid4()),
-            "request_id": request_id,
-            "model_name": r["model_name"],
-            "predicted_probability": r["p_ai"],
-            "latency_ms": r["latency_ms"],
-        })
+        try:
+            db.save_inference_request({
+                "request_id": request_id,
+                "session_id": session_id,
+                "batch_id": batch_id,
+                "file_name": r["file_name"],
+                "final_verdict": r["verdict"],
+                "consensus_score": r["p_ai"],
+            })
+            db.save_model_output({
+                "output_id": str(uuid.uuid4()),
+                "request_id": request_id,
+                "model_name": r["model_name"],
+                "predicted_probability": r["p_ai"],
+                "latency_ms": r["latency_ms"],
+            })
+        except Exception:
+            # one bad row should not cost the caller the whole batch result
+            logger.exception("Could not save request %s for %r", request_id, r["file_name"])
+            unsaved += 1
+
+    if unsaved:
+        warning = f"{unsaved} of these results could not be saved to History."
 
     summary = results_handler.format_batch_summary(raw_results)
     summary["session_id"] = session_id
+    summary["warning"] = warning
     return summary
 
 

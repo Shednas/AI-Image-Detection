@@ -211,11 +211,41 @@ system, and it is what the recorded demonstration depends on.
 
 ### 2.2 Error handling
 
-- [ ] Wrap `preprocess` and `predict` in try/except, return a clean message
-- [ ] Wrap the two `db.save_*` calls so a database failure does not discard a
-      successful inference (return the result with a warning flag)
-- [ ] Add `logging` and log every caught exception with context
-- [ ] Global exception handler so no stack trace ever reaches the client
+- [x] Wrap `preprocess` and `predict` in try/except, return a clean message
+- [x] Wrap the two `db.save_*` calls so a database failure does not discard a
+      successful inference (return the result with a warning flag). Both
+      endpoints now return `warning`, null when everything saved. The batch loop
+      counts unsaved rows rather than aborting, and skips the rows entirely when
+      the parent batch row failed, since they carry `batch_id` as a foreign key.
+- [x] Add `logging` and log every caught exception with context. Replaced the two
+      `print` calls in `results.py` at the same time.
+- [x] Global exception handler so no stack trace ever reaches the client
+- [x] **The dotenv working-directory bug does not reproduce.** `load_dotenv()`
+      resolves through `find_dotenv()`, which walks up from the calling file
+      rather than from the working directory, so `backend/.env` is found from any
+      cwd including `C:\`. Verified 27 July 2026 by importing the module from
+      both. The SETUP.md note about running uvicorn from `backend/` is about the
+      `No module named 'database'` import error, which is a separate and real
+      problem. Two genuine defects were there and are fixed:
+      - `find_dotenv` walks all the way to the filesystem root, so on a clone
+        with no `.env` yet it would silently adopt an unrelated one from a parent
+        directory. `load_dotenv` is now anchored to `backend/.env`.
+      - A missing `DATABASE_URL` reached `create_engine(None)` and raised a
+        SQLAlchemy `ArgumentError` that never mentions the missing file. It now
+        raises a message naming the file to create. This is the first thing a
+        fresh clone hits, so it matters for Phase 6.3.
+      - Note for 6.3: `find_dotenv` switches to the working directory under a
+        frozen build, so the original concern becomes real if the executable is
+        ever built with PyInstaller. The anchored path removes that too.
+- [x] **Verify:** eleven checks through `TestClient` with stubbed pipeline and
+      database. A failing save returns 200 with the result and a warning, a
+      healthy save leaves the warning null, an inference failure returns a clean
+      500, an unhandled error returns the generic message, neither leaks a
+      traceback or the original exception text, and a missing `DATABASE_URL`
+      raises a message naming the file. Checked 27 July 2026.
+- [ ] Not done here: the frontend does not display `warning` yet, so a failed
+      save is currently silent to the user. Wire it into the Analyze and Batch
+      pages during 2.7.
 
 ### 2.3 Zip hardening
 

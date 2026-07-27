@@ -165,6 +165,9 @@ Open http://localhost:5173 in your browser.
 **"No module named 'database'"**
 Make sure you are running uvicorn from inside the `backend/` folder, not from the project root.
 
+**"DATABASE_URL is not set"**
+Copy `backend/.env.example` to `backend/.env` and put your PostgreSQL password in it. The file is read from `backend/` regardless of which directory you start uvicorn in.
+
 **"could not connect to server" (PostgreSQL)**
 Ensure the PostgreSQL service is running. Open Windows Services and check that "postgresql-x64-XX" is running.
 
