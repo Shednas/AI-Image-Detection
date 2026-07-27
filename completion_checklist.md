@@ -180,12 +180,9 @@ influenced this prediction, which is false.
       the 1823rd contribution column dropped as the bias term. Checked
       27 July 2026.
 - [x] ~~Fallback to global importance~~ Not needed, the real fix works.
-- [ ] **Caveat for the report and for 2.8.** HOG is 1764 of the 1822 features, so
-      summing within a group still favours the largest group and HOG dominates
-      most breakdowns. The numbers are now per-image and honest, but the chart
-      compares groups of very unequal size. Either say so in the caption or show
-      a per-feature mean alongside the group total. Decide during 2.8.2, where
-      the captions are being rewritten anyway.
+- [ ] Group sizes are very unequal, HOG being 1764 of the 1822 features, so HOG
+      dominates most group totals. That is expected rather than a defect.
+      Handled in 2.8.2, not here.
 
 ---
 
@@ -253,11 +250,31 @@ system, and it is what the recorded demonstration depends on.
 
 ### 2.3 Zip hardening
 
-- [ ] Check `zf.getinfo(name).file_size` before calling `zf.read`
-- [ ] Cap total files per zip (suggest 100)
-- [ ] Cap total uncompressed size (suggest 200MB)
-- [ ] Handle `zipfile.BadZipFile`, returns 400
-- [ ] Reject a zip containing zero valid images, returns 400 with a useful message
+- [x] Check the declared size before reading, so a bomb is refused without being
+      decompressed at all. The read is also bounded to one byte past the limit.
+      That bound turned out to be defence in depth rather than the main guard:
+      zipfile stops decompressing at the declared size by itself, and an entry
+      that understates its size fails the CRC check instead.
+- [x] Cap total files per zip, set to 100
+- [x] Cap total uncompressed size, set to 200MB, returns 413
+- [x] Handle `zipfile.BadZipFile`, returns 400. Two places, not one: the
+      constructor for an unreadable archive, and the per-entry read for a
+      damaged member. Only the first was obvious. A tampered or corrupt entry
+      raises `BadZipFile` from `read`, which escaped `extract_zip` entirely and
+      reached the global handler as a 500. Damaged entries are now skipped the
+      same way oversized ones are, so one bad member does not cost the caller
+      the rest of the archive.
+- [x] Reject a zip containing zero valid images, returns 400 with a useful
+      message. Four distinct messages: no images at all, all oversized, all
+      damaged, or a mix with counts.
+- [x] Rejections raise `ZipRejected`, which carries its own status code, so the
+      endpoint maps the reason to a response without restating it
+- [x] **Verify:** sixteen checks at unit and endpoint level. Covers the happy
+      path, directory entries and non-images ignored, nested paths flattened,
+      unreadable archive, empty upload, no images, file count cap at and over
+      the limit, total size cap at and over the limit, an oversized entry, an
+      entry with a falsified header size, and a damaged entry alongside a good
+      one where the good one still comes through. Checked 27 July 2026.
 
 ### 2.4 Batch lifecycle
 
@@ -315,6 +332,12 @@ readings for a render, but the panels labelled them "below natural range" and
       including the three "what to look for" lines under the RGB histogram
 - [ ] Remove the "Why do metrics differ from the verdict?" box, which exists only
       to explain away the claims being removed above
+- [ ] STM feature contributions: show the group total and a per-feature mean side
+      by side. They answer different questions. The group total says what
+      contributed most to this decision overall, the per-feature mean says which
+      feature type is most informative individually. HOG dominating the total is
+      expected given it is 1764 of the 1822 features, so the caption should say
+      that rather than treat it as a finding. See 1.8.
 
 #### 2.8.3 Non-photographic content notice
 

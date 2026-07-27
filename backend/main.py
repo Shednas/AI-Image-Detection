@@ -7,7 +7,13 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from batch_handler import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES, BatchProcessor
+from batch_handler import (
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILE_SIZE_MB,
+    BatchProcessor,
+    ZipRejected,
+)
 from database.database import DatabaseManager
 from pipeline import InferencePipeline, ModelName
 from results import ResultsHandler
@@ -17,7 +23,6 @@ from session import SessionTracker
 # mismatches. The decode in validate_image is what actually proves the bytes
 # are an image.
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_FILE_SIZE_MB = MAX_FILE_SIZE_BYTES // (1024 * 1024)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -145,9 +150,12 @@ async def analyze_batch(
     session_id = session_tracker.resolve_session(session_id)
     batch_id = str(uuid.uuid4())
 
-    files = batch_processor.extract_zip(zip_bytes)
-    if not files:
-        raise HTTPException(status_code=400, detail="No valid images found in the zip file.")
+    try:
+        files = batch_processor.extract_zip(zip_bytes)
+    except ZipRejected as e:
+        # the rejection reason is specific and safe to show, unlike a raw error
+        logger.info("Rejected zip %r from batch %s: %s", file.filename, batch_id, e)
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
     warning = None
     batch_saved = True
