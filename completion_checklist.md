@@ -50,8 +50,7 @@ batch writes P(real) into the same column, with nothing to tell the two apart.
 - [x] `results.py` — read `raw_output["p_ai"]` instead of recomputing `1.0 - prob`
 - [x] `main.py` — store `raw["p_ai"]` in `consensus_score` (analyze endpoint)
 - [x] `main.py` — store `raw["p_ai"]` in `predicted_probability` (analyze endpoint)
-- [ ] `main.py` — same two fields in the batch endpoint loop (still stores
-      `r["probability"]`, which is P(real))
+- [x] `main.py` — same two fields in the batch endpoint loop
 - [x] `BatchPage.jsx` — render `row.p_ai`
 - [ ] Rename `probability` to `p_real` throughout (pipeline, results, batch rows).
       Do not drop it: `format_single` still needs it for `confidence_pct`.

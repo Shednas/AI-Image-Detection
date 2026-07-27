@@ -90,6 +90,9 @@ async def analyze_batch(
     db.save_batch(batch_id, session_id, total_files=len(files))
     raw_results = batch_processor.process_batch(files, model_name, pipeline)
 
+    # store p_ai, not probability: the analyze endpoint writes P(AI) into these
+    # same two columns, so writing P(real) here would put both meanings in one
+    # column with nothing to tell them apart
     for r in raw_results:
         if "error" in r:
             continue
@@ -100,13 +103,13 @@ async def analyze_batch(
             "batch_id": batch_id,
             "file_name": r["file_name"],
             "final_verdict": r["verdict"],
-            "consensus_score": r["probability"],
+            "consensus_score": r["p_ai"],
         })
         db.save_model_output({
             "output_id": str(uuid.uuid4()),
             "request_id": request_id,
             "model_name": r["model_name"],
-            "predicted_probability": r["probability"],
+            "predicted_probability": r["p_ai"],
             "latency_ms": r["latency_ms"],
         })
 
