@@ -1,5 +1,6 @@
 import io
 import time
+from enum import Enum
 from pathlib import Path
 
 import torch
@@ -10,6 +11,15 @@ from models.cnn_model import CNNDetector
 from models.fft_model import FFTDetector
 from models.hybrid_model import HybridDetector
 from models.stm_model import STMDetector
+
+
+# declared as an enum so FastAPI rejects an unknown model with a 422 before the
+# request reaches predict, where it would otherwise surface as a 500
+class ModelName(str, Enum):
+    cnn = "cnn"
+    fft = "fft"
+    hybrid = "hybrid"
+    stm = "stm"
 
 
 TRANSFORM = transforms.Compose([

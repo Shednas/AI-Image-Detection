@@ -158,10 +158,22 @@ system, and it is what the recorded demonstration depends on.
 
 ### 2.1 Input validation
 
-- [ ] Max file size on `/api/analyze` (10MB, matching the zip limit), returns 413
-- [ ] Extension and MIME check on `/api/analyze`, returns 415
-- [ ] `model_name` as a FastAPI `Enum` so bad values give an automatic 422
-- [ ] Reject empty uploads, returns 400
+- [x] Max file size on `/api/analyze` (10MB, matching the zip limit), returns 413.
+      Imports `MAX_FILE_SIZE_BYTES` from `batch_handler` rather than restating
+      the number, so the two limits cannot drift apart.
+- [x] Extension and MIME check on `/api/analyze`, returns 415. `content_type` is
+      client-supplied, so this only screens obvious mismatches; the PIL decode in
+      `validate_image` is still what proves the bytes are an image.
+- [x] `model_name` as a FastAPI `Enum` so bad values give an automatic 422.
+      `ModelName` lives in `pipeline.py` beside `MODEL_DISPLAY_NAMES`. Applied to
+      `/api/batch` as well: an unknown model there previously reached
+      `process_batch` and came back as a per-file error on every file, so the
+      response looked like a completed batch rather than a rejected request.
+- [x] Reject empty uploads, returns 400
+- [x] **Verify:** all six rejection paths return the intended status through
+      `TestClient` (empty 400, oversized 413, bad extension 415, bad MIME 415,
+      unknown model 422, undecodable bytes 400), and a valid request still
+      reaches inference. Checked 27 July 2026.
 
 ### 2.2 Error handling
 

@@ -1,14 +1,21 @@
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from batch_handler import BatchProcessor
+from batch_handler import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_BYTES, BatchProcessor
 from database.database import DatabaseManager
-from pipeline import InferencePipeline
+from pipeline import InferencePipeline, ModelName
 from results import ResultsHandler
 from session import SessionTracker
+
+# content_type is supplied by the client, so this only screens obvious
+# mismatches. The decode in validate_image is what actually proves the bytes
+# are an image.
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_FILE_SIZE_MB = MAX_FILE_SIZE_BYTES // (1024 * 1024)
 
 db = DatabaseManager()
 session_tracker = SessionTracker(db)
@@ -39,21 +46,39 @@ app.add_middleware(
 @app.post("/api/analyze")
 async def analyze_image(
     file: UploadFile = File(...),
-    model_name: str = Form(...),
+    model_name: ModelName = Form(...),
     session_id: str | None = Form(default=None),
 ):
     image_bytes = await file.read()
 
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    if len(image_bytes) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File is larger than the {MAX_FILE_SIZE_MB}MB limit.",
+        )
+
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS or file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported file type. Upload a JPEG, PNG or WebP image.",
+        )
+
     if not pipeline.validate_image(image_bytes):
         raise HTTPException(status_code=400, detail="Invalid or corrupted image file.")
 
+    # the rest of the pipeline compares model_name against plain strings
+    model_key = model_name.value
     session_id = session_tracker.resolve_session(session_id)
     request_id = str(uuid.uuid4())
     image_tensor = pipeline.preprocess(image_bytes)
-    raw = pipeline.predict(image_tensor, model_name)
+    raw = pipeline.predict(image_tensor, model_key)
 
-    model_obj = getattr(pipeline, model_name)
-    formatted = results_handler.format_single(raw, image_bytes, model_name, image_tensor, model_obj)
+    model_obj = getattr(pipeline, model_key)
+    formatted = results_handler.format_single(raw, image_bytes, model_key, image_tensor, model_obj)
 
     db.save_inference_request({
         "request_id": request_id,
@@ -80,7 +105,7 @@ async def analyze_image(
 @app.post("/api/batch")
 async def analyze_batch(
     file: UploadFile = File(...),
-    model_name: str = Form(...),
+    model_name: ModelName = Form(...),
     session_id: str | None = Form(default=None),
 ):
     zip_bytes = await file.read()
@@ -92,7 +117,7 @@ async def analyze_batch(
         raise HTTPException(status_code=400, detail="No valid images found in the zip file.")
 
     db.save_batch(batch_id, session_id, total_files=len(files))
-    raw_results = batch_processor.process_batch(files, model_name, pipeline)
+    raw_results = batch_processor.process_batch(files, model_name.value, pipeline)
 
     # store p_ai, not probability: the analyze endpoint writes P(AI) into these
     # same two columns, so writing P(real) here would put both meanings in one
