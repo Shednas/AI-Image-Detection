@@ -50,18 +50,3 @@ class BatchProcessor:
             except Exception as e:
                 results.append({"file_name": filename, "error": str(e)})
         return results
-
-    # guard against empty-batch division by zero with `or 1`
-    def get_batch_summary(self, results: list[dict]) -> dict:
-        valid = [r for r in results if "error" not in r]
-        ai_count = sum(1 for r in valid if r["verdict"] == "AI_GENERATED")
-        real_count = len(valid) - ai_count
-        total_valid = len(valid) or 1
-        return {
-            "total": len(results),
-            "valid": len(valid),
-            "ai_count": ai_count,
-            "real_count": real_count,
-            "ai_pct": round(ai_count / total_valid * 100, 1),
-            "real_pct": round(real_count / total_valid * 100, 1),
-        }

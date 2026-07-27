@@ -139,7 +139,7 @@ current local database, which already has the right types and holds zero rows.
 
 ### 1.7 Housekeeping
 
-- [ ] Delete `batch_handler.get_batch_summary`, a dead duplicate of
+- [x] Delete `batch_handler.get_batch_summary`, a dead duplicate of
       `results.format_batch_summary`. Keep the `results.py` version, which is the
       one Phase 3.1's batch summary test should target.
 - [x] `results.py`: `target_layer` was read before the `model is not None` guard,
