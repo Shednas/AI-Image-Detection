@@ -16,6 +16,10 @@ Half a day. Do this before touching code so every fix lands in version control.
 - [ ] Create repo `ai-image-detection`, public
 - [ ] Restructure into `research/` and `app/`
 - [ ] Point `app/backend/pipeline.py` imports at `research/src/models/`
+      - The two copies of the model files have diverged. `backend/models/stm_model.py`
+        gained an `extract_features` method in Phase 1.8, which the research copy
+        does not have. Keep the app copy when merging. Diff the other three
+        before assuming they still match.
 - [ ] Add `.gitignore` at root (data, checkpoints, venv, node_modules)
 - [ ] Add root `README.md`, `research/README.md`, `app/README.md`
 - [ ] Add `requirements.txt` to `research/` and `app/backend/`
