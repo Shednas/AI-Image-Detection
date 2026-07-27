@@ -22,13 +22,15 @@ class BatchProcessor:
                 files.append((Path(name).name, raw_bytes))
         return files
 
-    # double-checks extension + PIL decode since zip contents can be mislabelled
+    # double-checks extension and PIL decode since zip contents can be mislabelled.
+    # load() rather than verify(): verify() only reads the header, so a truncated
+    # entry would pass here and then abort the file later in process_batch.
     def validate_file(self, file_bytes: bytes, filename: str) -> bool:
         if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
             return False
         try:
             img = Image.open(io.BytesIO(file_bytes))
-            img.verify()
+            img.load()
             return True
         except Exception:
             return False

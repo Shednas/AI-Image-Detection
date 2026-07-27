@@ -66,11 +66,12 @@ class InferencePipeline:
 
         print("All models ready.")
 
-    # PIL's verify() catches truncated/corrupt files before they reach the model
+    # load() decodes the whole image, verify() only reads the header. A truncated
+    # JPEG passes verify() and then crashes inside preprocess with a 500.
     def validate_image(self, image_bytes: bytes) -> bool:
         try:
             img = Image.open(io.BytesIO(image_bytes))
-            img.verify()
+            img.load()
             return True
         except Exception:
             return False

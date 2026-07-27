@@ -97,9 +97,12 @@ request and grouping is meaningless.
 `img.verify()` reads headers only, so a truncated JPEG passes and then crashes
 during preprocessing.
 
-- [ ] Replace `verify()` with `load()` in `pipeline.validate_image`
-- [ ] Replace `verify()` with `load()` in `batch_handler.validate_file`
-- [ ] **Verify:** deliberately truncate a JPEG, confirm a clean 400 not a 500
+- [x] Replace `verify()` with `load()` in `pipeline.validate_image`
+- [x] Replace `verify()` with `load()` in `batch_handler.validate_file`
+- [x] **Verify:** truncated JPEG (header intact, data cut in half) now returns
+      False from both validators where `verify()` returned True, so `/api/analyze`
+      rejects it with a 400 before `preprocess` is reached. Checked at unit level
+      on 27 July 2026; still worth one manual upload during the Phase 2.7 pass.
 
 ### 1.6 Probability precision
 
