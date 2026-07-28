@@ -14,7 +14,7 @@ from batch_handler import (
     BatchProcessor,
     ZipRejected,
 )
-from database.database import DatabaseManager
+from database.database import BatchStatus, DatabaseManager
 from pipeline import InferencePipeline, ModelName
 from results import ResultsHandler
 from session import SessionTracker
@@ -139,6 +139,17 @@ async def analyze_image(
     return formatted
 
 
+# the batch row is bookkeeping in the same way the per-image rows are, so a
+# failure to update it is logged rather than raised over a result the caller
+# already has. Nothing user-facing reads the status yet, so there is no warning
+# to raise either.
+def mark_batch(batch_id: str, status: BatchStatus, processed: int, skipped: int) -> None:
+    try:
+        db.update_batch_status(batch_id, status, processed, skipped)
+    except Exception:
+        logger.exception("Could not mark batch %s as %s", batch_id, status.value)
+
+
 # skip empty/corrupt images but process the rest
 @app.post("/api/batch")
 async def analyze_batch(
@@ -172,6 +183,10 @@ async def analyze_batch(
         raw_results = batch_processor.process_batch(files, model_name.value, pipeline)
     except Exception:
         logger.exception("Batch %s failed during processing", batch_id)
+        # process_batch traps per-file errors, so reaching here means the run
+        # collapsed as a whole and no image got a verdict
+        if batch_saved:
+            mark_batch(batch_id, BatchStatus.failed, processed=0, skipped=len(files))
         raise HTTPException(status_code=500, detail="Could not process this batch.")
 
     # store p_ai, not probability: the analyze endpoint writes P(AI) into these
@@ -205,6 +220,12 @@ async def analyze_batch(
 
     if unsaved:
         warning = f"{unsaved} of these results could not be saved to History."
+
+    # skipped counts images the batch could not use, which is the same set the
+    # summary reports as invalid rows
+    processed = sum(1 for r in raw_results if "error" not in r)
+    if batch_saved:
+        mark_batch(batch_id, BatchStatus.completed, processed, len(raw_results) - processed)
 
     summary = results_handler.format_batch_summary(raw_results)
     summary["session_id"] = session_id

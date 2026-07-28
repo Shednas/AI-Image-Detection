@@ -278,9 +278,37 @@ system, and it is what the recorded demonstration depends on.
 
 ### 2.4 Batch lifecycle
 
-- [ ] Mark batch status complete after processing
-- [ ] Mark batch status failed on exception
-- [ ] Record processed and skipped counts
+- [x] Mark batch status complete after processing. `BatchStatus` in
+      `database.py` holds the three states; `save_batch` opens the row as
+      `processing` and the endpoint closes it as `completed`.
+- [x] Mark batch status failed on exception. `process_batch` traps per-file
+      errors, so reaching that handler means the run collapsed as a whole,
+      which is recorded as nothing processed and everything skipped.
+- [x] Record processed and skipped counts, as `processed_files` and
+      `skipped_files` on `batches`.
+- [x] Schema change applied by `DatabaseManager._migrate`, which runs
+      `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` on every startup rather than
+      relying on `create_all`. Nothing is dropped and the statements are
+      idempotent, so a fresh clone and the existing database converge.
+- [x] Existing rows backfilled rather than left to take the column default.
+      They are finished test batches, so they are set to `completed`, while the
+      default for new rows is `processing`. The counts are recovered from
+      `inference_requests`, which holds one row per image that came through, so
+      `skipped` is the remainder of `total_files`. A historical batch whose rows
+      failed to save would be understated, but zero would misreport every batch
+      rather than one.
+- [x] **Verify:** twenty-two checks against a throwaway database holding the
+      pre-change schema, plus endpoint-level checks with a recording stub.
+      Covers the backfill, the derived counts, a batch with no rows, a batch
+      with more rows than `total_files`, the NOT NULL and default state of all
+      three columns, a second startup leaving the backfill untouched, a fresh
+      database reaching the same shape, the completed and failed marks with
+      their counts, and a batch row that failed to insert never being updated.
+      Checked 28 July 2026.
+
+Not done here: nothing user-facing reads `status` yet, so a failure to update it
+is logged but raises no warning to the caller. Revisit if the History page ever
+shows batch state.
 
 ### 2.5 Health endpoint
 
@@ -408,7 +436,9 @@ tests the software. This is a named gap in your feedback.
       `TestClient` needs it. It is in no requirements file, so a fresh clone
       cannot run these tests. Decide when starting this section whether it goes
       in `app/backend/requirements.txt` or a separate `requirements-dev.txt`, and
-      add it either way. Do not leave it undocumented.
+      add it either way. Do not leave it undocumented. Note that Starlette now
+      warns on every `TestClient` import that `httpx` is deprecated in favour of
+      `httpx2`, so pin whichever one still works when this section is written.
 
 ### 3.3 NFR verification
 

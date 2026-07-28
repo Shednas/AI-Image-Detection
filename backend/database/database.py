@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from sqlalchemy import create_engine, Column, String, Integer, Numeric, DateTime, ForeignKey
+from sqlalchemy import create_engine, text, Column, String, Integer, Numeric, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
@@ -16,6 +17,15 @@ load_dotenv(ENV_PATH)
 Base = declarative_base()
 
 
+# the batch row is written before processing starts, so it needs a state that
+# says as much. A row still reading processing once a request is over means the
+# endpoint died between the insert and the update.
+class BatchStatus(str, Enum):
+    processing = "processing"
+    completed = "completed"
+    failed = "failed"
+
+
 class SessionRecord(Base):
     __tablename__ = "sessions"
     session_id = Column(String(36), primary_key=True)
@@ -27,6 +37,9 @@ class BatchRecord(Base):
     batch_id = Column(String(36), primary_key=True)
     session_id = Column(String(36), ForeignKey("sessions.session_id"), nullable=False)
     total_files = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False, default=BatchStatus.processing.value)
+    processed_files = Column(Integer, nullable=False, default=0)
+    skipped_files = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -63,6 +76,63 @@ class DatabaseManager:
         self.engine = create_engine(self.db_url)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         Base.metadata.create_all(bind=self.engine)
+        self._migrate()
+
+    # create_all only creates tables that are missing, so a column added to a
+    # model afterwards never reaches a database that already holds the table.
+    # These statements are written to be idempotent so a fresh clone and the
+    # existing viva database converge on the same schema without dropping
+    # anything and without pulling in a migration tool.
+    def _migrate(self) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS status VARCHAR(20)"))
+            conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS processed_files INTEGER"))
+            conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS skipped_files INTEGER"))
+
+            # rows predating the column are finished test batches, so they are
+            # backfilled as completed. The column default is processing, which
+            # is true of a row being inserted but would be a lie about history,
+            # which is why the old rows are backfilled rather than left to take
+            # the default.
+            conn.execute(
+                text("UPDATE batches SET status = :done WHERE status IS NULL"),
+                {"done": BatchStatus.completed.value},
+            )
+
+            # the counts are recovered rather than guessed: inference_requests
+            # holds one row per image that came through, so anything short of
+            # total_files did not. A batch whose rows failed to save would be
+            # understated here, but zero would misreport every historical batch
+            # rather than just that one.
+            conn.execute(text("""
+                UPDATE batches b
+                SET processed_files = c.n,
+                    skipped_files = GREATEST(b.total_files - c.n, 0)
+                FROM (
+                    SELECT batch_id, COUNT(*) AS n
+                    FROM inference_requests
+                    WHERE batch_id IS NOT NULL
+                    GROUP BY batch_id
+                ) c
+                WHERE b.batch_id = c.batch_id AND b.processed_files IS NULL
+            """))
+            conn.execute(text(
+                "UPDATE batches SET processed_files = 0, skipped_files = total_files "
+                "WHERE processed_files IS NULL"
+            ))
+
+            # only safe once every row is filled, which is what the backfills above
+            # guarantee. The default is interpolated because PostgreSQL will not
+            # accept a bind parameter in DDL; the value is a constant from the
+            # enum above, never anything a caller supplied.
+            conn.execute(text(
+                f"ALTER TABLE batches ALTER COLUMN status SET DEFAULT '{BatchStatus.processing.value}'"
+            ))
+            conn.execute(text("ALTER TABLE batches ALTER COLUMN status SET NOT NULL"))
+            conn.execute(text("ALTER TABLE batches ALTER COLUMN processed_files SET DEFAULT 0"))
+            conn.execute(text("ALTER TABLE batches ALTER COLUMN processed_files SET NOT NULL"))
+            conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET DEFAULT 0"))
+            conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET NOT NULL"))
 
     def create_session_record(self, session_id: str) -> None:
         db = self.SessionLocal()
@@ -92,14 +162,39 @@ class DatabaseManager:
     def save_batch(self, batch_id: str, session_id: str, total_files: int) -> None:
         db = self.SessionLocal()
         try:
-            db.add(BatchRecord(batch_id=batch_id, session_id=session_id, total_files=total_files))
+            db.add(BatchRecord(
+                batch_id=batch_id,
+                session_id=session_id,
+                total_files=total_files,
+                status=BatchStatus.processing.value,
+            ))
             db.commit()
         except Exception:
             db.rollback()
             raise
         finally:
-            db.close() 
-                
+            db.close()
+
+    def update_batch_status(
+        self, batch_id: str, status: BatchStatus, processed: int, skipped: int
+    ) -> None:
+        db = self.SessionLocal()
+        try:
+            row = db.query(BatchRecord).filter(BatchRecord.batch_id == batch_id).first()
+            # nothing to update if the insert failed earlier, and that failure has
+            # already been logged and reported by the caller
+            if row is None:
+                return
+            row.status = status.value
+            row.processed_files = processed
+            row.skipped_files = skipped
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     def save_inference_request(self, data: dict) -> None:
         db = self.SessionLocal()
         try:
