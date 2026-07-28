@@ -1,0 +1,16 @@
+# Normalise line endings to LF in the repository. Without this, committing from
+# Windows warns on every file and a clone on another platform sees the whole
+# tree as modified.
+* text=auto eol=lf
+
+# Marked explicitly rather than left to content detection, since a file wrongly
+# treated as text would be corrupted by normalisation.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pt binary
+*.pth binary
+*.joblib binary
+*.pkl binary
