@@ -33,6 +33,24 @@ one image gave contradictory numbers across pages.
   or comments.
 - Comments explain why, not what.
 
+## Comment density
+
+Comment sparingly. A comment earns its place only when the reasoning behind a
+line is genuinely not recoverable from reading it: the `{ai_generated: 0,
+real: 1}` mapping, the P(AI) direction, the lock spanning `pipeline.py` and
+`results.py`.
+
+Do not write comments that:
+
+- restate what the code does
+- explain standard framework or library behaviour
+- narrate the obvious, or label a section of ordinary code
+- record how something used to work, unless the old behaviour was a bug someone
+  could reintroduce
+
+Prefer one line to three. If a comment needs a paragraph, the reasoning belongs
+in `completion_checklist.md` or `testLog.md`, not beside the code.
+
 ## Data constraint
 
 `inference_requests` holds results needed for the viva.

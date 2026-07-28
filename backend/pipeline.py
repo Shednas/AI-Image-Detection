@@ -17,8 +17,8 @@ from models.stm_model import STMDetector
 logger = logging.getLogger("ai_detection.pipeline")
 
 
-# declared as an enum so FastAPI rejects an unknown model with a 422 before the
-# request reaches predict, where it would otherwise surface as a 500
+# an enum so FastAPI rejects an unknown model with 422, rather than predict
+# raising and surfacing as a 500
 class ModelName(str, Enum):
     cnn = "cnn"
     fft = "fft"
@@ -26,8 +26,8 @@ class ModelName(str, Enum):
     stm = "stm"
 
 
-# distinct from a bad model name: the name was valid but its weights did not
-# load, which is a service state rather than a caller mistake
+# the name was valid but its weights did not load: service state, not a caller
+# mistake
 class ModelUnavailable(RuntimeError):
     pass
 
@@ -55,15 +55,11 @@ class InferencePipeline:
         self.fft = None
         self.hybrid = None
         self.stm = None
-        # keyed by model name, holds why a load failed. Logged and surfaced as a
-        # count, never returned to the browser, since the text carries local paths
+        # never returned to the browser: the text carries local paths
         self.load_errors: dict[str, str] = {}
-        # one instance of each model is shared by every request. That is fine
-        # until Grad-CAM hangs hooks on a layer, at which point a plain forward
-        # pass from another request fires those hooks and overwrites the
-        # activations the first request is about to read. Every pass through a
-        # model is taken under this lock, whether it registers hooks or not.
-        # Reentrant so a caller already holding it can still call predict.
+        # one model instance is shared by every request, and Grad-CAM hangs hooks
+        # on a layer that other requests also pass through. Every pass is taken
+        # under this lock, whether it registers hooks or not.
         self.model_lock = threading.RLock()
 
     def _load_torch(self, model, filename: str, weights_dir: Path):
@@ -74,8 +70,7 @@ class InferencePipeline:
         model.eval()
         return model
 
-    # the checkpoint is found by glob rather than name because it comes out of
-    # train_stm.py with a run-specific filename
+    # glob rather than a fixed name: train_stm.py writes a run-specific filename
     def _load_stm(self, weights_dir: Path):
         joblib_files = list(weights_dir.glob("*.joblib"))
         if not joblib_files:
@@ -84,10 +79,7 @@ class InferencePipeline:
         model.eval()
         return model
 
-    # warm up all four models at startup so first request has no cold-start delay.
-    # Each is loaded independently: a missing or unreadable checkpoint should cost
-    # that one model rather than stopping the server before it can report which
-    # one is missing.
+    # loaded independently so a bad checkpoint costs one model, not the server
     def load_models(self, weights_dir: Path = WEIGHTS_DIR) -> None:
         logger.info("Loading models on %s", self.device)
         self.load_errors = {}
@@ -123,8 +115,6 @@ class InferencePipeline:
     def is_loaded(self, model_name: str) -> bool:
         return getattr(self, model_name, None) is not None
 
-    # read by the health endpoint, so it reports state rather than raising, and
-    # works even if load_models never ran
     def model_status(self) -> dict:
         return {name.value: self.is_loaded(name.value) for name in ModelName}
 
@@ -138,13 +128,12 @@ class InferencePipeline:
         except Exception:
             return False
 
-    # normalise to ImageNet stats to match training distribution
+    # ImageNet stats to match the training distribution
     def preprocess(self, image_bytes: bytes) -> torch.Tensor:
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         tensor = TRANSFORM(img).unsqueeze(0).to(self.device)
         return tensor
 
-    # dispatch to the selected model and measure wall-clock latency
     def predict(self, image_tensor: torch.Tensor, model_name: str) -> dict:
         model_map = {
             "cnn": self.cnn,
@@ -155,8 +144,8 @@ class InferencePipeline:
         if model_name not in model_map:
             raise ValueError(f"Unknown model: '{model_name}'. Choose from: cnn, fft, hybrid, stm")
 
-        # these were one branch, which reported an unloaded model as an unknown
-        # name and sent anyone reading the log looking for a typo that was not there
+        # separate from the check above, which would otherwise report an unloaded
+        # model as a typo
         model = model_map[model_name]
         if model is None:
             raise ModelUnavailable(f"The {model_name} model is not loaded.")

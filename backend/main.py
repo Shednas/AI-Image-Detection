@@ -19,9 +19,8 @@ from pipeline import InferencePipeline, ModelName
 from results import ResultsHandler
 from session import SessionTracker
 
-# content_type is supplied by the client, so this only screens obvious
-# mismatches. The decode in validate_image is what actually proves the bytes
-# are an image.
+# client-supplied, so this only screens obvious mismatches. The decode in
+# validate_image is what proves the bytes are an image.
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 logging.basicConfig(
@@ -37,7 +36,6 @@ batch_processor = BatchProcessor()
 results_handler = ResultsHandler(pipeline.model_lock)
 
 
-# load models at startup to avoid cold inference on first request
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     pipeline.load_models()
@@ -55,9 +53,7 @@ app.add_middleware(
 )
 
 
-# last line of defence: anything not already turned into an HTTPException gets
-# logged in full here and reduced to a generic message, so no stack trace or
-# internal path reaches the browser
+# keeps stack traces and internal paths out of the browser
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
@@ -67,10 +63,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# checked before any work is done, so a model whose weights failed to load is
-# reported as a service state rather than as a failed analysis. Without this the
-# batch endpoint would return an error on every file and look like a completed
-# batch, the same shape of problem the model_name enum fixed in 2.1.
+# without this, batch returns an error on every file and looks like a completed
+# batch rather than a rejected request
 def require_model(model_key: str) -> None:
     if not pipeline.is_loaded(model_key):
         logger.error("Rejected a request for %s, which is not loaded", model_key)
@@ -80,18 +74,15 @@ def require_model(model_key: str) -> None:
         )
 
 
-# declared def rather than async def: inference, the visualisations and the
-# database writes are all blocking, and on the event loop they served one request
-# at a time. FastAPI runs a def endpoint in its threadpool instead, so concurrent
-# uploads no longer queue behind each other.
+# def, not async def: inference, visualisations and database writes all block,
+# and on the event loop they served one request at a time
 @app.post("/api/analyze")
 def analyze_image(
     file: UploadFile = File(...),
     model_name: ModelName = Form(...),
     session_id: str | None = Form(default=None),
 ):
-    # file.read() is the async API; in a threadpool endpoint the underlying
-    # spooled file is read directly
+    # file.read() is the async API
     image_bytes = file.file.read()
 
     if not image_bytes:
@@ -113,7 +104,6 @@ def analyze_image(
     if not pipeline.validate_image(image_bytes):
         raise HTTPException(status_code=400, detail="Invalid or corrupted image file.")
 
-    # the rest of the pipeline compares model_name against plain strings
     model_key = model_name.value
     require_model(model_key)
     session_id = session_tracker.resolve_session(session_id)
@@ -129,8 +119,8 @@ def analyze_image(
     model_obj = getattr(pipeline, model_key)
     formatted = results_handler.format_single(raw, image_bytes, model_key, image_tensor, model_obj)
 
-    # the verdict is what the caller asked for and the row is bookkeeping, so a
-    # database failure is reported alongside the result rather than replacing it
+    # the row is bookkeeping, so a database failure is reported alongside the
+    # verdict rather than replacing it
     warning = None
     try:
         db.save_inference_request({
@@ -152,16 +142,11 @@ def analyze_image(
         logger.exception("Could not save request %s for %r", request_id, file.filename)
         warning = "This result could not be saved, so it will not appear in History."
 
-    # echoed back so the client can send it again and stay in one session
     formatted["session_id"] = session_id
     formatted["warning"] = warning
     return formatted
 
 
-# the batch row is bookkeeping in the same way the per-image rows are, so a
-# failure to update it is logged rather than raised over a result the caller
-# already has. Nothing user-facing reads the status yet, so there is no warning
-# to raise either.
 def mark_batch(batch_id: str, status: BatchStatus, processed: int, skipped: int) -> None:
     try:
         db.update_batch_status(batch_id, status, processed, skipped)
@@ -169,7 +154,6 @@ def mark_batch(batch_id: str, status: BatchStatus, processed: int, skipped: int)
         logger.exception("Could not mark batch %s as %s", batch_id, status.value)
 
 
-# skip empty/corrupt images but process the rest
 @app.post("/api/batch")
 def analyze_batch(
     file: UploadFile = File(...),
@@ -177,9 +161,8 @@ def analyze_batch(
     session_id: str | None = Form(default=None),
 ):
     zip_bytes = file.file.read()
-    # checked before the archive is opened, unlike analyze, which validates the
-    # upload first. Extracting a zip can cost up to the whole-archive limit in
-    # decompression, and none of that work is usable if the model is down
+    # before the archive is opened, unlike analyze: extraction can cost the whole
+    # decompression limit and none of it survives a 503
     require_model(model_name.value)
     session_id = session_tracker.resolve_session(session_id)
     batch_id = str(uuid.uuid4())
@@ -196,8 +179,8 @@ def analyze_batch(
     try:
         db.save_batch(batch_id, session_id, total_files=len(files))
     except Exception:
-        # the per-image rows carry this batch_id as a foreign key, so without the
-        # batch row they cannot be written either
+        # the per-image rows carry batch_id as a foreign key, so they cannot be
+        # written without this row
         logger.exception("Could not save batch %s", batch_id)
         batch_saved = False
         warning = "This batch could not be saved, so it will not appear in History."
@@ -205,16 +188,15 @@ def analyze_batch(
     try:
         raw_results = batch_processor.process_batch(files, model_name.value, pipeline)
     except Exception:
-        logger.exception("Batch %s failed during processing", batch_id)
         # process_batch traps per-file errors, so reaching here means the run
-        # collapsed as a whole and no image got a verdict
+        # collapsed as a whole
+        logger.exception("Batch %s failed during processing", batch_id)
         if batch_saved:
             mark_batch(batch_id, BatchStatus.failed, processed=0, skipped=len(files))
         raise HTTPException(status_code=500, detail="Could not process this batch.")
 
-    # store p_ai, not probability: the analyze endpoint writes P(AI) into these
-    # same two columns, so writing P(real) here would put both meanings in one
-    # column with nothing to tell them apart
+    # p_ai, not probability: analyze writes P(AI) into these same two columns, so
+    # writing P(real) here would put both meanings in one column
     unsaved = 0
     for r in raw_results:
         if "error" in r or not batch_saved:
@@ -237,15 +219,12 @@ def analyze_batch(
                 "latency_ms": r["latency_ms"],
             })
         except Exception:
-            # one bad row should not cost the caller the whole batch result
             logger.exception("Could not save request %s for %r", request_id, r["file_name"])
             unsaved += 1
 
     if unsaved:
         warning = f"{unsaved} of these results could not be saved to History."
 
-    # skipped counts images the batch could not use, which is the same set the
-    # summary reports as invalid rows
     processed = sum(1 for r in raw_results if "error" not in r)
     if batch_saved:
         mark_batch(batch_id, BatchStatus.completed, processed, len(raw_results) - processed)
@@ -256,7 +235,6 @@ def analyze_batch(
     return summary
 
 
-# thin pass-through; filtering is done in the DB layer
 @app.get("/api/history")
 def get_history(
     search: str = Query(default=None),
@@ -265,16 +243,14 @@ def get_history(
     return db.get_history(search=search, category=category)
 
 
-# readiness rather than liveness: a 200 here means a request would actually be
-# served, so every dependency is checked rather than just the process being up
+# readiness, not liveness: a 200 means a request would actually be served
 @app.get("/api/health")
 def health():
     models = pipeline.model_status()
     database_up = db.ping()
     ready = all(models.values()) and database_up
 
-    # the load errors themselves stay in the log. They carry local paths, and the
-    # count is enough to tell a caller to go and look
+    # load_errors stay in the log; they carry local paths
     return JSONResponse(
         status_code=200 if ready else 503,
         content={

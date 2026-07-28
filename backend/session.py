@@ -12,15 +12,13 @@ class SessionTracker:
         self.db.create_session_record(session_id)
         return session_id
 
-    # a well-formed id is not enough: an id that parses but has no sessions row
-    # would violate the foreign key on inference_requests, so fall back to a new
-    # session rather than trusting whatever the client sent
+    # a well-formed id is not enough: one that parses but has no sessions row
+    # would violate the foreign key on inference_requests
     def resolve_session(self, session_id: str | None) -> str:
         if session_id and self.validate_session(session_id) and self.db.session_exists(session_id):
             return session_id
         return self.create_session()
 
-    # UUID parse check is the only validation needed for a stateless session
     def validate_session(self, session_id: str) -> bool:
         try:
             uuid.UUID(session_id)
@@ -28,6 +26,5 @@ class SessionTracker:
         except ValueError:
             return False
 
-    # stub for future session enrichment
     def get_session(self, session_id: str) -> dict:
         return {"session_id": session_id}

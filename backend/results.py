@@ -35,7 +35,6 @@ FEATURE_GROUP_SLICES = {
 }
 
 
-# map continuous P(AI) to a human-readable confidence zone label
 def _probability_zone(p_ai: float) -> dict:
     if p_ai < 0.2:
         return {"key": "very_likely_real", "label": "Very likely authentic"}
@@ -49,15 +48,12 @@ def _probability_zone(p_ai: float) -> dict:
 
 
 class ResultsHandler:
-    # takes the pipeline's lock rather than owning one, because the section that
-    # has to be serialised spans both modules: Grad-CAM's hooks live on a layer
-    # that ordinary predict calls also pass through. Measured before this existed,
-    # 5 of 24 concurrent requests came back with a heatmap belonging to another
-    # image and 1 came back empty.
+    # the pipeline's lock, not one of its own: the section that must be
+    # serialised spans both modules, since Grad-CAM's hooks live on a layer that
+    # ordinary predict calls also pass through
     def __init__(self, model_lock=None):
         self._model_lock = model_lock or threading.RLock()
 
-    # assemble the full API response for a single-image analysis
     def format_single(self, raw_output, image_bytes, model_name, image_tensor=None, model=None):
         p_real = raw_output["p_real"]
         p_ai = raw_output["p_ai"] # computed once, in the pipeline
@@ -75,7 +71,6 @@ class ResultsHandler:
             "visualizations": self._build_visualizations(image_bytes, raw_output, model_name, image_tensor, model),
         }
 
-    # collapse raw row results into aggregate stats
     def format_batch_summary(self, results):
         valid = [r for r in results if "error" not in r]
         ai_count = sum(1 for r in valid if r["verdict"] == "AI_GENERATED")
@@ -91,7 +86,6 @@ class ResultsHandler:
             "rows": results,
         }
 
-    # only generate the viz types that the chosen model actually supports
     def _build_visualizations(self, image_bytes, raw_output, model_name, image_tensor, model):
         viz = {
             "rgb_distribution": self.generate_rgb_distribution(image_bytes),
@@ -183,8 +177,7 @@ class ResultsHandler:
         Image.fromarray(colored).save(buf, format='PNG')
         return base64.b64encode(buf.getvalue()).decode('utf-8')
 
-    # feature extraction and the LightGBM call can both raise; a failed chart
-    # should not cost the caller the verdict it came for
+    # a failed chart should not cost the caller the verdict
     def _safe_feature_importance(self, model, image_tensor):
         try:
             return self.generate_feature_importance(model, image_tensor)
@@ -192,9 +185,8 @@ class ResultsHandler:
             logger.exception("Feature contribution failed")
             return None
 
-    # per-prediction SHAP contributions, not feature_importances_. The latter is
-    # a property of the trained model, so it returned an identical breakdown for
-    # every image while the caption claimed it explained this one.
+    # per-prediction SHAP, not feature_importances_: the latter is a property of
+    # the trained model and gave every image an identical breakdown
     def generate_feature_importance(self, model, image_tensor):
         if image_tensor is None:
             return None
@@ -202,9 +194,8 @@ class ResultsHandler:
         with self._model_lock:
             features = model.extract_features(image_tensor)
             contributions = model.lgbm_model.predict(features, pred_contrib=True)
-        # last column is the bias term, which belongs to no feature group.
-        # absolute values because a group that argues against the verdict still
-        # influenced it, and signed sums would cancel within a group
+        # the last column is the bias term, which belongs to no group. Absolute
+        # because a group arguing against the verdict still influenced it.
         per_feature = np.abs(contributions[0, :-1])
         groups = {name: float(per_feature[sl].sum()) for name, sl in FEATURE_GROUP_SLICES.items()}
         total = sum(groups.values()) or 1.0
@@ -221,9 +212,8 @@ class ResultsHandler:
             logger.exception("Grad-CAM failed")
             return None
 
-    # full backward pass through the target layer; hooks are always cleaned up in
-    # finally, and the whole hook lifecycle is held under the lock because a hook
-    # registered here fires for any other request passing through the same layer
+    # the whole hook lifecycle is held under the lock: a hook registered here
+    # fires for any other request passing through the same layer
     def _generate_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
         activations = {}
         gradients = {}
@@ -236,10 +226,9 @@ class ResultsHandler:
                 with torch.enable_grad():
                     output = model(tensor)
                     model.zero_grad()
-                    # the single logit rises toward "real" under the {ai: 0, real: 1}
-                    # training mapping, so ascending it explains an AUTHENTIC verdict.
-                    # an AI verdict lives in the opposite direction and needs the
-                    # target negated, otherwise the heatmap argues the other case
+                    # the logit rises toward real under the {ai: 0, real: 1}
+                    # mapping, so an AI verdict needs the target negated or the
+                    # heatmap argues the other case
                     target = output.mean()
                     if verdict == "AI_GENERATED":
                         target = -target

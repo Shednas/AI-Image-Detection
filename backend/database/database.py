@@ -7,11 +7,8 @@ from sqlalchemy import create_engine, text, Column, String, Integer, Numeric, Da
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
-# anchored to backend/.env instead of letting find_dotenv search. Bare
-# load_dotenv() walks up to the filesystem root, so on a clone with no .env yet
-# it would silently adopt an unrelated one from a parent directory. It also
-# falls back to the working directory under a frozen build, which is how the
-# Phase 6.3 executable would run.
+# anchored rather than letting find_dotenv search: it walks to the filesystem
+# root, so a clone with no .env yet would silently adopt an unrelated one
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(ENV_PATH)
 
@@ -20,9 +17,8 @@ logger = logging.getLogger("ai_detection.database")
 Base = declarative_base()
 
 
-# the batch row is written before processing starts, so it needs a state that
-# says as much. A row still reading processing once a request is over means the
-# endpoint died between the insert and the update.
+# a row still reading processing after a request is over means the endpoint died
+# between the insert and the update
 class BatchStatus(str, Enum):
     processing = "processing"
     completed = "completed"
@@ -69,8 +65,7 @@ class ModelOutput(Base):
 class DatabaseManager:
     def __init__(self):
         self.db_url = os.getenv("DATABASE_URL")
-        # create_engine(None) raises an ArgumentError that says nothing about the
-        # missing file, which is the first thing a fresh clone hits
+        # create_engine(None) raises an ArgumentError that never mentions .env
         if not self.db_url:
             raise RuntimeError(
                 f"DATABASE_URL is not set. Copy backend/.env.example to {ENV_PATH} "
@@ -79,18 +74,15 @@ class DatabaseManager:
         self.engine = create_engine(self.db_url)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         self.schema_ready = False
-        # create_engine does not connect, so this is the only step at startup that
-        # needs the server. PostgreSQL not running is the most likely reason for a
-        # failed start, and it should leave the backend up and reporting itself
-        # degraded rather than stopping it from starting at all.
+        # create_engine does not connect, so this is the only startup step that
+        # needs the server. It must not stop the backend from starting.
         try:
             self._ensure_schema()
         except Exception:
             logger.exception("Could not prepare the database schema, starting degraded")
 
-    # deferred so the schema is built on the first successful connection rather
-    # than at import. A backend that started while the database was down recovers
-    # on its own once it comes back, without a restart.
+    # deferred to the first successful connection, so a backend that started
+    # while the database was down recovers without a restart
     def _ensure_schema(self) -> None:
         if self.schema_ready:
             return
@@ -99,38 +91,30 @@ class DatabaseManager:
         self.schema_ready = True
         logger.info("Database schema is ready")
 
-    # every caller goes through here, so a session is never handed out against a
-    # schema that was never created
+    # so a session is never handed out against a schema that was never created
     def _session(self):
         self._ensure_schema()
         return self.SessionLocal()
 
-    # create_all only creates tables that are missing, so a column added to a
-    # model afterwards never reaches a database that already holds the table.
-    # These statements are written to be idempotent so a fresh clone and the
-    # existing viva database converge on the same schema without dropping
-    # anything and without pulling in a migration tool.
+    # create_all only creates missing tables, so a column added later never
+    # reaches an existing database. Idempotent, and drops nothing.
     def _migrate(self) -> None:
         with self.engine.begin() as conn:
             conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS status VARCHAR(20)"))
             conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS processed_files INTEGER"))
             conn.execute(text("ALTER TABLE batches ADD COLUMN IF NOT EXISTS skipped_files INTEGER"))
 
-            # rows predating the column are finished test batches, so they are
-            # backfilled as completed. The column default is processing, which
-            # is true of a row being inserted but would be a lie about history,
-            # which is why the old rows are backfilled rather than left to take
-            # the default.
+            # rows predating the column are finished batches. The default is
+            # processing, true of a new row but a lie about history, so they are
+            # backfilled rather than left to take it.
             conn.execute(
                 text("UPDATE batches SET status = :done WHERE status IS NULL"),
                 {"done": BatchStatus.completed.value},
             )
 
-            # the counts are recovered rather than guessed: inference_requests
-            # holds one row per image that came through, so anything short of
-            # total_files did not. A batch whose rows failed to save would be
-            # understated here, but zero would misreport every historical batch
-            # rather than just that one.
+            # recovered rather than guessed: inference_requests holds one row per
+            # image that came through. A batch whose rows failed to save is
+            # understated, but zero would misreport every batch instead of one.
             conn.execute(text("""
                 UPDATE batches b
                 SET processed_files = c.n,
@@ -148,10 +132,9 @@ class DatabaseManager:
                 "WHERE processed_files IS NULL"
             ))
 
-            # only safe once every row is filled, which is what the backfills above
-            # guarantee. The default is interpolated because PostgreSQL will not
-            # accept a bind parameter in DDL; the value is a constant from the
-            # enum above, never anything a caller supplied.
+            # only safe once the backfills above have filled every row.
+            # Interpolated because PostgreSQL takes no bind parameter in DDL; the
+            # value is the enum constant, never caller input.
             conn.execute(text(
                 f"ALTER TABLE batches ALTER COLUMN status SET DEFAULT '{BatchStatus.processing.value}'"
             ))
@@ -161,9 +144,8 @@ class DatabaseManager:
             conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET DEFAULT 0"))
             conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET NOT NULL"))
 
-    # a round trip rather than a look at the pool, which would still call a
-    # connection healthy after the server went away. Reports rather than raises,
-    # because the health endpoint answers with the state either way.
+    # a round trip, not a pool check: a pooled connection still looks healthy
+    # after the server goes away
     def ping(self) -> bool:
         try:
             with self.engine.connect() as conn:
@@ -172,9 +154,8 @@ class DatabaseManager:
             logger.exception("Database ping failed")
             return False
 
-        # reachable again, so this is the first opportunity to build a schema that
-        # could not be created at startup. Reported as down until that succeeds,
-        # because a connection with no tables behind it cannot serve a request.
+        # first chance to build a schema that could not be created at startup.
+        # Still down until it succeeds: no tables means no request can be served.
         try:
             self._ensure_schema()
         except Exception:
@@ -193,8 +174,8 @@ class DatabaseManager:
         finally:
             db.close()    
 
-    # the sessions row has to exist before anything references it, so callers
-    # check here rather than trusting a client-supplied id
+    # the sessions row must exist before anything references it, and the id is
+    # client-supplied
     def session_exists(self, session_id: str) -> bool:
         db = self._session()
         try:
@@ -229,8 +210,7 @@ class DatabaseManager:
         db = self._session()
         try:
             row = db.query(BatchRecord).filter(BatchRecord.batch_id == batch_id).first()
-            # nothing to update if the insert failed earlier, and that failure has
-            # already been logged and reported by the caller
+            # the insert failed earlier, and the caller has already reported it
             if row is None:
                 return
             row.status = status.value

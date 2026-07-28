@@ -14,8 +14,8 @@ MAX_FILES_PER_ZIP = 100
 MAX_TOTAL_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 
 
-# carries the status the endpoint should return, so the reason for the rejection
-# survives the trip out of this module
+# carries the status the endpoint should return, so the reason survives the trip
+# out of this module
 class ZipRejected(Exception):
     def __init__(self, message: str, status_code: int = 400):
         super().__init__(message)
@@ -23,8 +23,7 @@ class ZipRejected(Exception):
 
 
 class BatchProcessor:
-    # skip oversized or non-image entries without failing the whole batch, but
-    # refuse the archive outright when it breaches a whole-zip limit
+    # skip bad entries, but refuse the archive outright on a whole-zip limit
     def extract_zip(self, zip_bytes: bytes) -> list[tuple[str, bytes]]:
         try:
             archive = zipfile.ZipFile(io.BytesIO(zip_bytes))
@@ -48,11 +47,9 @@ class BatchProcessor:
                 )
 
             for info in entries:
-                # checking the declared size first refuses a bomb without
-                # decompressing it at all. zipfile also stops decompressing at
-                # the declared size and fails the CRC if the entry understates
-                # it, so the bounded read below is defence in depth rather than
-                # the only guard.
+                # the declared size refuses a bomb without decompressing at all.
+                # zipfile stops at that size and fails the CRC if an entry
+                # understates it, so the bounded read is defence in depth.
                 if info.file_size > MAX_FILE_SIZE_BYTES:
                     oversized += 1
                     continue
@@ -60,7 +57,6 @@ class BatchProcessor:
                     with zf.open(info) as handle:
                         raw_bytes = handle.read(MAX_FILE_SIZE_BYTES + 1)
                 except (zipfile.BadZipFile, OSError, EOFError) as e:
-                    # one damaged entry should not cost the caller the archive.
                     # a tampered header lands here as a CRC failure
                     logger.warning("Skipping unreadable zip entry %r: %s", info.filename, e)
                     corrupt += 1
@@ -71,15 +67,13 @@ class BatchProcessor:
 
                 total_bytes += len(raw_bytes)
                 if total_bytes > MAX_TOTAL_UNCOMPRESSED_BYTES:
-                    # derived here rather than held as a second constant, which
-                    # could disagree with the byte limit it describes
+                    # derived rather than a second constant that could disagree
                     limit_mb = MAX_TOTAL_UNCOMPRESSED_BYTES // (1024 * 1024)
                     raise ZipRejected(
                         f"This zip expands to more than {limit_mb}MB.",
                         status_code=413,
                     )
-                # Path().name drops any directory component, so nested archives
-                # flatten and a crafted path cannot escape anywhere
+                # Path().name drops the directory, so a crafted path cannot escape
                 files.append((Path(info.filename).name, raw_bytes))
 
         if not files:
@@ -98,9 +92,8 @@ class BatchProcessor:
 
         return files
 
-    # double-checks extension and PIL decode since zip contents can be mislabelled.
-    # load() rather than verify(): verify() only reads the header, so a truncated
-    # entry would pass here and then abort the file later in process_batch.
+    # load() rather than verify(): verify() reads only the header, so a truncated
+    # entry would pass here and abort later in process_batch
     def validate_file(self, file_bytes: bytes, filename: str) -> bool:
         if Path(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
             return False
@@ -111,7 +104,7 @@ class BatchProcessor:
         except Exception:
             return False
 
-    # per-file errors are captured so one bad image doesn't abort the batch
+    # per-file errors are captured so one bad image does not abort the batch
     def process_batch(self, files: list[tuple[str, bytes]], model_name: str, pipeline) -> list[dict]:
         results = []
         for filename, file_bytes in files:
