@@ -1,0 +1,9 @@
+{
+  "stage": 1,
+  "total": 500,
+  "real": 250,
+  "fake": 250,
+  "train": 347,
+  "validation": 71,
+  "test": 82
+}

@@ -1,0 +1,23 @@
+{
+  "stage": 2,
+  "model": "stm",
+  "best_iteration": 105,
+  "n_features": 1822,
+  "lgbm_params": {
+    "objective": "binary",
+    "metric": "binary_logloss",
+    "boosting_type": "goss",
+    "num_leaves": 127,
+    "max_depth": 7,
+    "learning_rate": 0.05,
+    "n_estimators": 500,
+    "min_child_samples": 20,
+    "feature_fraction": 0.8,
+    "top_rate": 0.2,
+    "other_rate": 0.1,
+    "lambda_l1": 0.1,
+    "lambda_l2": 0.1,
+    "verbose": -1,
+    "random_state": 42
+  }
+}

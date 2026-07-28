@@ -1,0 +1,48 @@
+{
+  "stage": 3,
+  "model": "hybrid",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.4073,
+      "val_f1": 0.8401,
+      "val_auc": 0.9297
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.2992,
+      "val_f1": 0.856,
+      "val_auc": 0.9331
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.259,
+      "val_f1": 0.8503,
+      "val_auc": 0.9313
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.2221,
+      "val_f1": 0.8179,
+      "val_auc": 0.9254
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.2039,
+      "val_f1": 0.8266,
+      "val_auc": 0.9229
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.164,
+      "val_f1": 0.8259,
+      "val_auc": 0.9269
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.1478,
+      "val_f1": 0.8329,
+      "val_auc": 0.927
+    }
+  ]
+}

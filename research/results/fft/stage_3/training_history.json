@@ -1,0 +1,84 @@
+{
+  "stage": 3,
+  "model": "fft_improved",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.6719,
+      "val_f1": 0.6454,
+      "val_auc": 0.6482
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.6538,
+      "val_f1": 0.6736,
+      "val_auc": 0.6565
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.6445,
+      "val_f1": 0.6835,
+      "val_auc": 0.6658
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.6388,
+      "val_f1": 0.6947,
+      "val_auc": 0.6669
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.6348,
+      "val_f1": 0.5305,
+      "val_auc": 0.6576
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.6328,
+      "val_f1": 0.6975,
+      "val_auc": 0.6866
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.6306,
+      "val_f1": 0.7061,
+      "val_auc": 0.688
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.6296,
+      "val_f1": 0.6915,
+      "val_auc": 0.6849
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.6269,
+      "val_f1": 0.6844,
+      "val_auc": 0.6897
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.627,
+      "val_f1": 0.6885,
+      "val_auc": 0.695
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.6261,
+      "val_f1": 0.6991,
+      "val_auc": 0.6935
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.6227,
+      "val_f1": 0.6947,
+      "val_auc": 0.692
+    },
+    {
+      "epoch": 13,
+      "train_loss": 0.6218,
+      "val_f1": 0.6841,
+      "val_auc": 0.6918
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "stage": 2,
+  "model": "cnn",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.4482,
+      "val_f1": 0.8446,
+      "val_auc": 0.9084
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.3058,
+      "val_f1": 0.8452,
+      "val_auc": 0.9121
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.2448,
+      "val_f1": 0.7961,
+      "val_auc": 0.9042
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.2223,
+      "val_f1": 0.7649,
+      "val_auc": 0.9086
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.1978,
+      "val_f1": 0.806,
+      "val_auc": 0.9017
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.1485,
+      "val_f1": 0.7734,
+      "val_auc": 0.9006
+    }
+  ]
+}
