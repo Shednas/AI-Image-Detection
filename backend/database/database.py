@@ -78,8 +78,32 @@ class DatabaseManager:
             )
         self.engine = create_engine(self.db_url)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.schema_ready = False
+        # create_engine does not connect, so this is the only step at startup that
+        # needs the server. PostgreSQL not running is the most likely reason for a
+        # failed start, and it should leave the backend up and reporting itself
+        # degraded rather than stopping it from starting at all.
+        try:
+            self._ensure_schema()
+        except Exception:
+            logger.exception("Could not prepare the database schema, starting degraded")
+
+    # deferred so the schema is built on the first successful connection rather
+    # than at import. A backend that started while the database was down recovers
+    # on its own once it comes back, without a restart.
+    def _ensure_schema(self) -> None:
+        if self.schema_ready:
+            return
         Base.metadata.create_all(bind=self.engine)
         self._migrate()
+        self.schema_ready = True
+        logger.info("Database schema is ready")
+
+    # every caller goes through here, so a session is never handed out against a
+    # schema that was never created
+    def _session(self):
+        self._ensure_schema()
+        return self.SessionLocal()
 
     # create_all only creates tables that are missing, so a column added to a
     # model afterwards never reaches a database that already holds the table.
@@ -144,13 +168,22 @@ class DatabaseManager:
         try:
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            return True
         except Exception:
             logger.exception("Database ping failed")
             return False
 
+        # reachable again, so this is the first opportunity to build a schema that
+        # could not be created at startup. Reported as down until that succeeds,
+        # because a connection with no tables behind it cannot serve a request.
+        try:
+            self._ensure_schema()
+        except Exception:
+            logger.exception("Database is reachable but the schema is not ready")
+            return False
+        return True
+
     def create_session_record(self, session_id: str) -> None:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             db.add(SessionRecord(session_id=session_id))
             db.commit()
@@ -163,7 +196,7 @@ class DatabaseManager:
     # the sessions row has to exist before anything references it, so callers
     # check here rather than trusting a client-supplied id
     def session_exists(self, session_id: str) -> bool:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             row = (
                 db.query(SessionRecord.session_id)
@@ -175,7 +208,7 @@ class DatabaseManager:
             db.close()
 
     def save_batch(self, batch_id: str, session_id: str, total_files: int) -> None:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             db.add(BatchRecord(
                 batch_id=batch_id,
@@ -193,7 +226,7 @@ class DatabaseManager:
     def update_batch_status(
         self, batch_id: str, status: BatchStatus, processed: int, skipped: int
     ) -> None:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             row = db.query(BatchRecord).filter(BatchRecord.batch_id == batch_id).first()
             # nothing to update if the insert failed earlier, and that failure has
@@ -211,7 +244,7 @@ class DatabaseManager:
             db.close()
 
     def save_inference_request(self, data: dict) -> None:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             db.add(InferenceRequest(**data))
             db.commit()
@@ -222,7 +255,7 @@ class DatabaseManager:
             db.close()
 
     def save_model_output(self, data: dict) -> None:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             db.add(ModelOutput(**data))
             db.commit()
@@ -233,7 +266,7 @@ class DatabaseManager:
             db.close()
 
     def get_history(self, search: str = None, category: str = None) -> list:
-        db = self.SessionLocal()
+        db = self._session()
         try:
             query = (
                 db.query(InferenceRequest, ModelOutput)

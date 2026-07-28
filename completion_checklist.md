@@ -335,15 +335,31 @@ shows batch state.
       absence of local paths in the response, and 503 from both endpoints when
       the requested model is not loaded. Checked 28 July 2026.
 
+- [x] A database that is down at startup no longer stops the backend. This is
+      the likeliest real failure, PostgreSQL simply not running yet, and the one
+      most likely to spoil a recorded demo. `create_engine` never connects, so
+      only `create_all` and the migration needed guarding. They now run behind
+      `_ensure_schema`, which is attempted at startup, retried by `ping` on the
+      first successful connection, and called by every session so no caller ever
+      works against a schema that was never created. The backend starts degraded
+      and recovers on its own when the database comes back, without a restart.
+- [x] **Verify:** the backend was started against an unreachable database and
+      answered `/api/health` with 503 and `"database":"down"` while all four
+      models reported `true`, with the process still alive. Recovery was checked
+      separately across ten checks: construction against a dead database does
+      not raise, `ping` reports down, a write still fails so the caller keeps its
+      warning, then once the database is reachable `ping` reports up, the four
+      tables and the three new columns are created on that first ping, and
+      writes succeed without a restart. Checked 28 July 2026.
+
 Not done here: the load failure reasons stay in the log and are not returned,
 since they carry local filesystem paths.
 
-Known limitation: `DatabaseManager` connects at import to run `create_all` and
-the migration, so a database that is already down when the backend starts stops
-the process rather than producing a degraded health response. The ping covers
-the realistic case, which is the database going away after startup. Deferred
-rather than fixed, since starting with no database means History and the viva
-data are unavailable anyway.
+Not verified by stopping the PostgreSQL service, which needs an elevated shell.
+An unreachable address gives the backend the same connection refused error, so
+the behaviour under test is identical, but if you want the literal check run
+`Stop-Service postgresql-x64-18 -Force` as administrator, start the backend, and
+confirm the same 503.
 
 ### 2.6 Concurrency
 
