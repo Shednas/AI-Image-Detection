@@ -93,7 +93,10 @@ uvicorn main:app --reload --port 8000
 
 The backend runs at http://localhost:8000
 The database tables are created automatically on first startup.
-Check http://localhost:8000/api/health, which should return `{"status":"ok"}`.
+Check http://localhost:8000/api/health. A healthy backend returns 200 with
+`"status":"ok"`, all four models `true` and `"database":"up"`. If any model
+failed to load or the database is unreachable it returns 503 with
+`"status":"degraded"`, and the reason is in the backend console.
 
 ---
 

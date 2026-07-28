@@ -312,10 +312,38 @@ shows batch state.
 
 ### 2.5 Health endpoint
 
-- [ ] Report models-loaded state per model
-- [ ] Ping the database
-- [ ] Report device (cuda or cpu)
-- [ ] Return 503 when anything is down
+- [x] Report models-loaded state per model, from `pipeline.model_status()`
+- [x] Ping the database with a `SELECT 1` round trip rather than a look at the
+      connection pool, which would still call a dead server healthy
+- [x] Report device (cuda or cpu)
+- [x] Return 503 when anything is down, with `status` reading `degraded`
+- [x] `load_models` now loads each model independently. It previously raised on
+      the first missing checkpoint, which stopped the server before it could
+      report which one was missing, so per-model health state was unreachable.
+      Failures are logged with their reason and the service starts degraded.
+- [x] `/api/analyze` and `/api/batch` return 503 for a model that is not loaded,
+      checked before any work is done. On batch this previously produced an
+      error on every file and looked like a completed batch, the same shape of
+      problem the `ModelName` enum fixed in 2.1.
+- [x] `predict` no longer reports an unloaded model as an unknown name. That one
+      branch covered both cases and sent anyone reading the log looking for a
+      typo that was not there. Unknown names raise `ValueError`, unloaded models
+      raise `ModelUnavailable`.
+- [x] **Verify:** eighteen checks. Covers a pipeline with no weights on disk,
+      each load failure being recorded, the two exception types, a healthy 200
+      body, a 503 for one missing model, a 503 for an unreachable database, the
+      absence of local paths in the response, and 503 from both endpoints when
+      the requested model is not loaded. Checked 28 July 2026.
+
+Not done here: the load failure reasons stay in the log and are not returned,
+since they carry local filesystem paths.
+
+Known limitation: `DatabaseManager` connects at import to run `create_all` and
+the migration, so a database that is already down when the backend starts stops
+the process rather than producing a degraded health response. The ping covers
+the realistic case, which is the database going away after startup. Deferred
+rather than fixed, since starting with no database means History and the viva
+data are unavailable anyway.
 
 ### 2.6 Concurrency
 

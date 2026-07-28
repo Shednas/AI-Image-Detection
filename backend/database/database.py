@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 from enum import Enum
@@ -13,6 +14,8 @@ from dotenv import load_dotenv
 # Phase 6.3 executable would run.
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(ENV_PATH)
+
+logger = logging.getLogger("ai_detection.database")
 
 Base = declarative_base()
 
@@ -133,6 +136,18 @@ class DatabaseManager:
             conn.execute(text("ALTER TABLE batches ALTER COLUMN processed_files SET NOT NULL"))
             conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET DEFAULT 0"))
             conn.execute(text("ALTER TABLE batches ALTER COLUMN skipped_files SET NOT NULL"))
+
+    # a round trip rather than a look at the pool, which would still call a
+    # connection healthy after the server went away. Reports rather than raises,
+    # because the health endpoint answers with the state either way.
+    def ping(self) -> bool:
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            logger.exception("Database ping failed")
+            return False
 
     def create_session_record(self, session_id: str) -> None:
         db = self.SessionLocal()

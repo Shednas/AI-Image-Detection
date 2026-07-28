@@ -67,6 +67,19 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
+# checked before any work is done, so a model whose weights failed to load is
+# reported as a service state rather than as a failed analysis. Without this the
+# batch endpoint would return an error on every file and look like a completed
+# batch, the same shape of problem the model_name enum fixed in 2.1.
+def require_model(model_key: str) -> None:
+    if not pipeline.is_loaded(model_key):
+        logger.error("Rejected a request for %s, which is not loaded", model_key)
+        raise HTTPException(
+            status_code=503,
+            detail=f"The {model_key.upper()} model is unavailable. Try another model.",
+        )
+
+
 # validate before inference to avoid pytorch errors on bad input
 @app.post("/api/analyze")
 async def analyze_image(
@@ -97,6 +110,7 @@ async def analyze_image(
 
     # the rest of the pipeline compares model_name against plain strings
     model_key = model_name.value
+    require_model(model_key)
     session_id = session_tracker.resolve_session(session_id)
     request_id = str(uuid.uuid4())
 
@@ -158,6 +172,7 @@ async def analyze_batch(
     session_id: str | None = Form(default=None),
 ):
     zip_bytes = await file.read()
+    require_model(model_name.value)
     session_id = session_tracker.resolve_session(session_id)
     batch_id = str(uuid.uuid4())
 
@@ -242,7 +257,22 @@ async def get_history(
     return db.get_history(search=search, category=category)
 
 
-# liveness probe for deployment checks
+# readiness rather than liveness: a 200 here means a request would actually be
+# served, so every dependency is checked rather than just the process being up
 @app.get("/api/health")
-async def health():
-    return {"status": "ok"}
+def health():
+    models = pipeline.model_status()
+    database_up = db.ping()
+    ready = all(models.values()) and database_up
+
+    # the load errors themselves stay in the log. They carry local paths, and the
+    # count is enough to tell a caller to go and look
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "status": "ok" if ready else "degraded",
+            "device": str(pipeline.device),
+            "models": models,
+            "database": "up" if database_up else "down",
+        },
+    )
