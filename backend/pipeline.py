@@ -1,5 +1,6 @@
 import io
 import logging
+import threading
 import time
 from enum import Enum
 from pathlib import Path
@@ -57,6 +58,13 @@ class InferencePipeline:
         # keyed by model name, holds why a load failed. Logged and surfaced as a
         # count, never returned to the browser, since the text carries local paths
         self.load_errors: dict[str, str] = {}
+        # one instance of each model is shared by every request. That is fine
+        # until Grad-CAM hangs hooks on a layer, at which point a plain forward
+        # pass from another request fires those hooks and overwrites the
+        # activations the first request is about to read. Every pass through a
+        # model is taken under this lock, whether it registers hooks or not.
+        # Reentrant so a caller already holding it can still call predict.
+        self.model_lock = threading.RLock()
 
     def _load_torch(self, model, filename: str, weights_dir: Path):
         model = model.to(self.device)
@@ -154,7 +162,7 @@ class InferencePipeline:
             raise ModelUnavailable(f"The {model_name} model is not loaded.")
 
         t0 = time.perf_counter()
-        with torch.no_grad():
+        with self.model_lock, torch.no_grad():
             logit = model(image_tensor).squeeze()
             p_real = torch.sigmoid(logit).item()
         latency_ms = int((time.perf_counter() - t0) * 1000)

@@ -1,6 +1,7 @@
 import base64
 import io
 import logging
+import threading
 
 import matplotlib
 matplotlib.use('Agg')
@@ -48,6 +49,14 @@ def _probability_zone(p_ai: float) -> dict:
 
 
 class ResultsHandler:
+    # takes the pipeline's lock rather than owning one, because the section that
+    # has to be serialised spans both modules: Grad-CAM's hooks live on a layer
+    # that ordinary predict calls also pass through. Measured before this existed,
+    # 5 of 24 concurrent requests came back with a heatmap belonging to another
+    # image and 1 came back empty.
+    def __init__(self, model_lock=None):
+        self._model_lock = model_lock or threading.RLock()
+
     # assemble the full API response for a single-image analysis
     def format_single(self, raw_output, image_bytes, model_name, image_tensor=None, model=None):
         p_real = raw_output["p_real"]
@@ -189,8 +198,10 @@ class ResultsHandler:
     def generate_feature_importance(self, model, image_tensor):
         if image_tensor is None:
             return None
-        features = model.extract_features(image_tensor)
-        contributions = model.lgbm_model.predict(features, pred_contrib=True)
+        # same shared instance as the forward pass, so held under the same lock
+        with self._model_lock:
+            features = model.extract_features(image_tensor)
+            contributions = model.lgbm_model.predict(features, pred_contrib=True)
         # last column is the bias term, which belongs to no feature group.
         # absolute values because a group that argues against the verdict still
         # influenced it, and signed sums would cancel within a group
@@ -210,37 +221,40 @@ class ResultsHandler:
             logger.exception("Grad-CAM failed")
             return None
 
-    # full backward pass through the target layer; hooks are always cleaned up in finally
+    # full backward pass through the target layer; hooks are always cleaned up in
+    # finally, and the whole hook lifecycle is held under the lock because a hook
+    # registered here fires for any other request passing through the same layer
     def _generate_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
         activations = {}
         gradients = {}
-        h_fwd = target_layer.register_forward_hook(lambda m, i, o: activations.update({'a': o}))
-        h_bwd = target_layer.register_full_backward_hook(lambda m, gi, go: gradients.update({'g': go[0]}))
-        try:
-            model.eval()
-            tensor = image_tensor.clone().detach()
-            with torch.enable_grad():
-                output = model(tensor)
+        with self._model_lock:
+            h_fwd = target_layer.register_forward_hook(lambda m, i, o: activations.update({'a': o}))
+            h_bwd = target_layer.register_full_backward_hook(lambda m, gi, go: gradients.update({'g': go[0]}))
+            try:
+                model.eval()
+                tensor = image_tensor.clone().detach()
+                with torch.enable_grad():
+                    output = model(tensor)
+                    model.zero_grad()
+                    # the single logit rises toward "real" under the {ai: 0, real: 1}
+                    # training mapping, so ascending it explains an AUTHENTIC verdict.
+                    # an AI verdict lives in the opposite direction and needs the
+                    # target negated, otherwise the heatmap argues the other case
+                    target = output.mean()
+                    if verdict == "AI_GENERATED":
+                        target = -target
+                    target.backward()
+                act = activations['a'].squeeze(0)
+                grd = gradients['g'].squeeze(0)
+                weights = grd.mean(dim=(1, 2))
+                cam = (weights[:, None, None] * act).sum(dim=0)
+                cam = torch.relu(cam)
+                cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+                cam_np = cam.detach().cpu().numpy()
+            finally:
+                h_fwd.remove()
+                h_bwd.remove()
                 model.zero_grad()
-                # the single logit rises toward "real" under the {ai: 0, real: 1}
-                # training mapping, so ascending it explains an AUTHENTIC verdict.
-                # an AI verdict lives in the opposite direction and needs the
-                # target negated, otherwise the heatmap argues the other case
-                target = output.mean()
-                if verdict == "AI_GENERATED":
-                    target = -target
-                target.backward()
-            act = activations['a'].squeeze(0)
-            grd = gradients['g'].squeeze(0)
-            weights = grd.mean(dim=(1, 2))
-            cam = (weights[:, None, None] * act).sum(dim=0)
-            cam = torch.relu(cam)
-            cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
-            cam_np = cam.detach().cpu().numpy()
-        finally:
-            h_fwd.remove()
-            h_bwd.remove()
-            model.zero_grad()
         cam_256 = np.array(
             Image.fromarray((cam_np * 255).astype(np.uint8)).resize((256, 256), Image.BILINEAR),
             dtype=np.float32,

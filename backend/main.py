@@ -34,7 +34,7 @@ db = DatabaseManager()
 session_tracker = SessionTracker(db)
 pipeline = InferencePipeline()
 batch_processor = BatchProcessor()
-results_handler = ResultsHandler()
+results_handler = ResultsHandler(pipeline.model_lock)
 
 
 # load models at startup to avoid cold inference on first request
@@ -80,14 +80,19 @@ def require_model(model_key: str) -> None:
         )
 
 
-# validate before inference to avoid pytorch errors on bad input
+# declared def rather than async def: inference, the visualisations and the
+# database writes are all blocking, and on the event loop they served one request
+# at a time. FastAPI runs a def endpoint in its threadpool instead, so concurrent
+# uploads no longer queue behind each other.
 @app.post("/api/analyze")
-async def analyze_image(
+def analyze_image(
     file: UploadFile = File(...),
     model_name: ModelName = Form(...),
     session_id: str | None = Form(default=None),
 ):
-    image_bytes = await file.read()
+    # file.read() is the async API; in a threadpool endpoint the underlying
+    # spooled file is read directly
+    image_bytes = file.file.read()
 
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
@@ -166,12 +171,15 @@ def mark_batch(batch_id: str, status: BatchStatus, processed: int, skipped: int)
 
 # skip empty/corrupt images but process the rest
 @app.post("/api/batch")
-async def analyze_batch(
+def analyze_batch(
     file: UploadFile = File(...),
     model_name: ModelName = Form(...),
     session_id: str | None = Form(default=None),
 ):
-    zip_bytes = await file.read()
+    zip_bytes = file.file.read()
+    # checked before the archive is opened, unlike analyze, which validates the
+    # upload first. Extracting a zip can cost up to the whole-archive limit in
+    # decompression, and none of that work is usable if the model is down
     require_model(model_name.value)
     session_id = session_tracker.resolve_session(session_id)
     batch_id = str(uuid.uuid4())
@@ -250,7 +258,7 @@ async def analyze_batch(
 
 # thin pass-through; filtering is done in the DB layer
 @app.get("/api/history")
-async def get_history(
+def get_history(
     search: str = Query(default=None),
     category: str = Query(default=None),
 ):

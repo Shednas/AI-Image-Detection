@@ -321,10 +321,14 @@ shows batch state.
       the first missing checkpoint, which stopped the server before it could
       report which one was missing, so per-model health state was unreachable.
       Failures are logged with their reason and the service starts degraded.
-- [x] `/api/analyze` and `/api/batch` return 503 for a model that is not loaded,
-      checked before any work is done. On batch this previously produced an
-      error on every file and looked like a completed batch, the same shape of
-      problem the `ModelName` enum fixed in 2.1.
+- [x] `/api/analyze` and `/api/batch` return 503 for a model that is not loaded.
+      On batch this previously produced an error on every file and looked like a
+      completed batch, the same shape of problem the `ModelName` enum fixed in
+      2.1. The two endpoints order the check differently on purpose: analyze
+      validates the upload first, since that is one cheap decode and it gives the
+      caller the more actionable error, while batch checks the model first, since
+      opening the archive can cost the whole decompression limit and none of that
+      work survives a 503.
 - [x] `predict` no longer reports an unloaded model as an unknown name. That one
       branch covered both cases and sent anyone reading the log looking for a
       typo that was not there. Unknown names raise `ValueError`, unloaded models
@@ -363,9 +367,69 @@ confirm the same 503.
 
 ### 2.6 Concurrency
 
-- [ ] Change endpoints from `async def` to `def` so FastAPI uses a threadpool
-- [ ] Measure single-request latency before and after
-- [ ] Note both numbers for the report (relevant to the 3000ms NFR)
+- [x] Change endpoints from `async def` to `def` so FastAPI uses a threadpool.
+      `/api/analyze`, `/api/batch` and `/api/history` are now `def`. The two
+      upload endpoints read `file.file.read()`, since `await file.read()` is the
+      async API. `/api/health` was already `def`.
+- [x] Measure single-request latency before and after
+- [x] Note both numbers for the report (relevant to the 3000ms NFR)
+
+Single-request medians, seven timed runs each after two warm-ups, one fixed
+512x512 PNG, one reused session, measured against a real uvicorn server on CUDA.
+
+| Model  | Before (async) | After (def plus lock) |
+|---|---|---|
+| CNN    | 222.5 ms | 166.0 ms |
+| FFT    | 134.5 ms | 124.7 ms |
+| Hybrid | 174.9 ms | 216.1 ms |
+| STM    | 236.0 ms | 222.2 ms |
+
+Read those as unchanged, not improved. Run to run variance across repeats of the
+same code was wider than the differences here: hybrid measured 174.9, 281.0 and
+216.1 ms in three runs. The honest claim is that moving to a threadpool costs
+nothing on a single request. Every model sits an order of magnitude under the
+3000ms NFR, STM closest at 222 ms, which is the number Phase 3.3 needs.
+
+Four concurrent requests, the case the change was meant to help:
+
+| | Before (async) | After (def plus lock) |
+|---|---|---|
+| 4 back to back | 933.7 ms wall | 975.3 ms wall |
+| 4 at once | 3336.8 ms wall | 2770.9 ms wall |
+| slowest of the 4 | 2986.7 ms | 2430.6 ms |
+
+- [x] Concurrency improved by about 17 per cent, which is far less than the
+      change promises. Four simultaneous requests are still slower in total than
+      the same four run back to back, so this is not parallelism, it is reduced
+      queueing. A single request in a four-way pile-up takes about 2.4 s, inside
+      the 3000ms NFR but without much room. Worth stating plainly in the report
+      rather than claiming the threadpool fixed concurrency.
+- [x] Torch thread oversubscription was tested as the explanation and ruled out.
+      Torch asks for 14 intra-op threads per request against 20 logical cores, so
+      four requests want 56. Capping with `OMP_NUM_THREADS=4` made both single
+      request and concurrent numbers worse, so that is not the bottleneck. The
+      remaining cause is not identified.
+- [x] The change exposed a real correctness bug, not just a performance one.
+      Grad-CAM registers hooks on a layer of the one shared model instance. Once
+      requests genuinely overlapped, a hook registered by one request fired
+      during another request's forward pass and overwrote the activations the
+      first was about to read. Measured: 5 of 24 concurrent requests returned a
+      heatmap belonging to a different image, and 1 returned none. Under
+      `async def` this could not happen, because requests never overlapped.
+- [x] Fixed with one reentrant lock on the pipeline, taken by `predict`, by
+      Grad-CAM and by the STM contribution call. A lock inside Grad-CAM alone was
+      tried first and left 1 of 24 still wrong, because an ordinary `predict`
+      call passes through the same hooked layer. `ResultsHandler` is given the
+      pipeline's lock rather than owning one, since the section that has to be
+      serialised spans both modules. This also means model passes are serialised
+      by design, which accounts for part of why concurrency does not scale. The
+      GPU serialises them anyway.
+- [x] **Verify:** the contamination test compares each concurrent response
+      against a sequential reference for the same image, having first confirmed
+      the two references are stable and different from each other. 24 concurrent
+      Grad-CAM requests and 24 concurrent STM requests all match their own image.
+      The 2.3, 2.4 and 2.5 suites were re-run against the changed code.
+      Checked 28 July 2026.
 
 ### 2.7 End-to-end verification
 
