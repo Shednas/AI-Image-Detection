@@ -61,9 +61,7 @@ Start with [app/README.md](app/README.md) to run the application, or
 ## Model weights
 
 Not in the repository. `best_cnn.pt` is 90MB and `best_hybrid.pt` is 97MB, past
-GitHub's limits. They are attached to the release; see `app/README.md` for where
-to put them.
-
+GitHub's limits.
 ## Licence
 
 MIT, see [LICENSE](LICENSE). This covers the code only. The datasets are
