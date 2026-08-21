@@ -196,7 +196,7 @@ export default function AnalyzePage() {
             {preview
               ? <img src={preview} alt="Preview" className="max-h-48 rounded-lg object-contain" />
               : <><UploadIcon /><p className="text-base font-semibold text-roast">Upload an Image</p>
-                  <p className="text-xs text-roast mt-1">Photo, screenshot, digital art - PNG, JPEG, WEBP</p></>
+                  <p className="text-xs text-roast mt-1">PNG, JPEG or WEBP, up to 10MB. Trained on photographs, so results on screenshots, renders and scans are unreliable.</p></>
             }
           </div>
           {image && <p className="text-center text-xs text-roast mt-2">{image.name}</p>}
