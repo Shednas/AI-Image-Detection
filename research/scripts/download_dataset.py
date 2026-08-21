@@ -73,11 +73,13 @@ def download_forensynths(target_images=10000, output_dir=FORENSYNTHS_DIR):
 # Print a status summary of all expected raw data directories
 def check_data_sources():
     sources = {
-        "ImageNet": RAW_DIR / "imagenet_sample",
-        "COCO": RAW_DIR / "coco_sample",
+        "ImageNet": RAW_DIR / "imagenet",
+        "COCO": RAW_DIR / "coco",
         "Unsplash": RAW_DIR / "unsplash",
         "GenImage": RAW_DIR / "genimage",
         "ForenSynths": RAW_DIR / "forensynths",
+        "CIFAKE": RAW_DIR / "cifake",
+        "Flickr30k": RAW_DIR / "flickr30k",
     }
 
     print("\nData Sources Status:")
@@ -86,7 +88,9 @@ def check_data_sources():
     for name, path in sources.items():
         path_obj = Path(path)
         if path_obj.exists():
-            count = len(list(path_obj.glob("*.*")))
+            # rglob, not glob: coco, genimage, cifake and forensynths keep their
+            # images in subdirectories, so a top-level glob reported them empty
+            count = len(list(path_obj.rglob("*.*")))
             status = "OK" if count > 0 else "EMPTY"
             print(f"{name:15} {status:15} ({count} files)")
         else:

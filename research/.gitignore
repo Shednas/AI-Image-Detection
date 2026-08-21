@@ -46,7 +46,6 @@ data/frequency_domain/
 # Generated metadata logs
 data/metadata/download_manifest.json
 data/metadata/sources.json
-data/metadata/splits_stage_*.json
 
 # Training artifacts
 # results/ is tracked: it holds the metrics and figures behind the
