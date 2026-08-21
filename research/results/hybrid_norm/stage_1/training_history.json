@@ -1,0 +1,66 @@
+{
+  "stage": 1,
+  "model": "hybrid_norm",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.6646,
+      "val_f1": 0.0556,
+      "val_auc": 0.7944
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.5794,
+      "val_f1": 0.549,
+      "val_auc": 0.831
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.4842,
+      "val_f1": 0.6984,
+      "val_auc": 0.8619
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.3732,
+      "val_f1": 0.7647,
+      "val_auc": 0.8825
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.3333,
+      "val_f1": 0.8,
+      "val_auc": 0.8913
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.2385,
+      "val_f1": 0.7692,
+      "val_auc": 0.8929
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.1668,
+      "val_f1": 0.7463,
+      "val_auc": 0.873
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.1291,
+      "val_f1": 0.7419,
+      "val_auc": 0.8881
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.084,
+      "val_f1": 0.678,
+      "val_auc": 0.8865
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.0851,
+      "val_f1": 0.6897,
+      "val_auc": 0.8913
+    }
+  ]
+}

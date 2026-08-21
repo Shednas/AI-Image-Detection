@@ -1,0 +1,60 @@
+{
+  "stage": 2,
+  "model": "hybrid_norm",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.4704,
+      "val_f1": 0.8331,
+      "val_auc": 0.9108
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.3248,
+      "val_f1": 0.8073,
+      "val_auc": 0.909
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.2549,
+      "val_f1": 0.797,
+      "val_auc": 0.9085
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.2025,
+      "val_f1": 0.8385,
+      "val_auc": 0.9134
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.1672,
+      "val_f1": 0.8318,
+      "val_auc": 0.9134
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.1535,
+      "val_f1": 0.8149,
+      "val_auc": 0.911
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.1262,
+      "val_f1": 0.8049,
+      "val_auc": 0.9053
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.0807,
+      "val_f1": 0.8099,
+      "val_auc": 0.9159
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.0832,
+      "val_f1": 0.7824,
+      "val_auc": 0.9057
+    }
+  ]
+}
