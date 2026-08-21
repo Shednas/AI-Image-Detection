@@ -1,9 +1,29 @@
+# torch and torchvision are not listed here on purpose. They install from a
+# separate index depending on whether you want the CUDA or CPU build, and an
+# --index-url line here would apply to every package below it. Install them
+# first, see README.md.
+
+# web
 fastapi
 uvicorn[standard]
+python-multipart
+
+# database
 sqlalchemy
 psycopg2-binary
-python-multipart
 python-dotenv
+
+# inference, needed by the STM model and the visualisations.
+# scikit-learn is required even though nothing imports it: stm_model.joblib
+# holds an sklearn-wrapped LGBMClassifier, so joblib needs it at unpickle time.
+# A static import scan will not find it.
+lightgbm
+scikit-learn
+scikit-image
+scipy
+joblib
+
+# image handling and charts
 pillow
 numpy
 matplotlib

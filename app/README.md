@@ -13,6 +13,8 @@ with per-model visualisations and a searchable history.
 
 ## Setup
 
+All paths are relative to the repository root.
+
 ### 1. Database
 
 Create the database. Any PostgreSQL client will do:
@@ -26,10 +28,38 @@ Tables are created on first startup, so there is no migration step to run.
 ### 2. Backend
 
 ```powershell
-cd backend
+cd app\backend
 python -m venv venv
 venv\Scripts\activate
+```
+
+Install PyTorch first, from its own index. This is a separate step because an
+`--index-url` inside `requirements.txt` applies to every package in the file,
+not just torch.
+
+With an NVIDIA GPU:
+
+```powershell
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
+```
+
+Without one, the CPU build from PyPI is enough. Everything runs, more slowly:
+
+```powershell
+pip install torch torchvision
+```
+
+Then the rest:
+
+```powershell
 pip install -r ..\requirements.txt
+```
+
+Check it before going further. Every model is PyTorch or depends on it, so a
+missing package fails at import rather than at request time:
+
+```powershell
+python -c "import torch, lightgbm, skimage, scipy; print(torch.__version__, torch.cuda.is_available())"
 ```
 
 Copy `backend/.env.example` to `backend/.env` and set your password:
@@ -59,26 +89,31 @@ numbers that disagree with the dissertation.
 ### 4. Frontend
 
 ```powershell
-cd frontend
+cd app\frontend
 npm install
 ```
 
 ## Running
 
-Two terminals.
+Two terminals. Every path below starts from the repository root, so
+`cd` back there first if you are already inside one of these folders.
 
 Backend:
 
 ```powershell
-cd backend
+cd app\backend
 venv\Scripts\activate
-uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8000
 ```
+
+`python -m uvicorn` rather than `uvicorn`: the `Scripts\*.exe` launchers hard-code
+an absolute path to the interpreter, so they break if the folder is ever moved.
+The module form does not.
 
 Frontend:
 
 ```powershell
-cd frontend
+cd app\frontend
 npm run dev
 ```
 
@@ -92,7 +127,7 @@ assuming something is broken.
 ## Tests
 
 ```powershell
-cd backend
+cd app\backend
 venv\Scripts\activate
 pip install -r ..\requirements.txt -r ..\requirements-dev.txt
 pytest
