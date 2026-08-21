@@ -9,6 +9,7 @@ from PIL import Image
 from torchvision import transforms
 
 from src.models.hybrid_model import HybridDetector
+from src.models.hybrid_norm_model import HybridNormDetector
 from src.models.hybrid_proj_model import HybridProjDetector
 from src.evaluation.metrics import compute_metrics
 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--results_dir", type=str, default=None,
                         help="Where to write results, default results/hybrid/stage_N/unseen")
     parser.add_argument("--model_class", type=str, default="hybrid",
-                        choices=["hybrid", "hybrid_proj"],
+                        choices=["hybrid", "hybrid_norm", "hybrid_proj"],
                         help="Architecture to build before loading the checkpoint")
     args = parser.parse_args()
 
@@ -100,7 +101,11 @@ if __name__ == "__main__":
 
     # the checkpoint carries no record of its architecture, so a mismatch here
     # loads without error and quietly predicts from the wrong fusion width
-    model_classes = {"hybrid": HybridDetector, "hybrid_proj": HybridProjDetector}
+    model_classes = {
+        "hybrid": HybridDetector,
+        "hybrid_norm": HybridNormDetector,
+        "hybrid_proj": HybridProjDetector,
+    }
     model = model_classes[args.model_class](image_size=256, num_bands=4).to(device)
     model.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True))
     model.eval()
