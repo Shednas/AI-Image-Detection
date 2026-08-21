@@ -9,6 +9,13 @@ from io import BytesIO
 import time
 import random
 
+# every default path is built from here, so the script runs from any working
+# directory rather than only from research/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+UNSPLASH_DIR = RAW_DIR / "unsplash"
+UNSPLASH_MANIFEST = UNSPLASH_DIR / "photos.csv000"
+
 
 # Load already-downloaded URLs from the manifest file to avoid re-downloading
 def _load_downloaded_urls(manifest_path: Path) -> set[str]:
@@ -47,8 +54,8 @@ def _next_unsplash_index(output_path: Path) -> int:
 
 
 # Download Unsplash images via direct URL, resuming from the manifest
-def download_unsplash_images(target_images=4000, output_dir="data/raw/unsplash",
-                             metadata_file="data/raw/unsplash/photos.csv000",
+def download_unsplash_images(target_images=4000, output_dir=UNSPLASH_DIR,
+                             metadata_file=UNSPLASH_MANIFEST,
                              random_sample=False, delay=0.5):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -141,7 +148,7 @@ def download_unsplash_images(target_images=4000, output_dir="data/raw/unsplash",
 
 
 # Count downloaded images and verify against manifest
-def verify_unsplash_images(output_dir="data/raw/unsplash"):
+def verify_unsplash_images(output_dir=UNSPLASH_DIR):
     output_path = Path(output_dir)
 
     if not output_path.exists():
@@ -175,12 +182,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--output-dir",
-        default="data/raw/unsplash",
+        default=UNSPLASH_DIR,
         help="Output directory for images (default: data/raw/unsplash)"
     )
     parser.add_argument(
         "--metadata-file",
-        default="data/raw/unsplash/photos.csv000",
+        default=UNSPLASH_MANIFEST,
         help="Path to photos.csv metadata file"
     )
     parser.add_argument(

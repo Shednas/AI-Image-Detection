@@ -15,7 +15,11 @@ import csv
 import json
 from pathlib import Path
 
-RESULTS = Path("results")
+# every default path is built from here, so the script runs from any working
+# directory rather than only from research/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+RESULTS = PROJECT_ROOT / "results"
 MODELS = ["cnn", "fft", "hybrid", "hybrid_norm", "hybrid_proj", "stm"]
 STAGES = [1, 2, 3]
 METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc"]
@@ -101,7 +105,7 @@ def main():
     args = parser.parse_args()
 
     if not RESULTS.is_dir():
-        raise SystemExit("results/ not found. Run this from the research directory.")
+        raise SystemExit(f"No results directory at {RESULTS}")
 
     rows = collect()
 

@@ -9,7 +9,7 @@ import shutil
 from PIL import Image
 
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 STAGE_SIZES = {
     1: 500,

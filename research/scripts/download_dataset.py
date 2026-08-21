@@ -4,9 +4,15 @@ from pathlib import Path
 from PIL import Image
 from io import BytesIO
 
+# every default path is built from here, so the script runs from any working
+# directory rather than only from research/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+FORENSYNTHS_DIR = RAW_DIR / "forensynths"
+
 
 # Stream ForenSynths from HuggingFace and save as JPEGs
-def download_forensynths(target_images=10000, output_dir="data/raw/forensynths"):
+def download_forensynths(target_images=10000, output_dir=FORENSYNTHS_DIR):
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     print("Loading ForenSynths from HuggingFace...")
@@ -67,11 +73,11 @@ def download_forensynths(target_images=10000, output_dir="data/raw/forensynths")
 # Print a status summary of all expected raw data directories
 def check_data_sources():
     sources = {
-        "ImageNet": "data/raw/imagenet_sample",
-        "COCO": "data/raw/coco_sample",
-        "Unsplash": "data/raw/unsplash",
-        "GenImage": "data/raw/genimage",
-        "ForenSynths": "data/raw/forensynths",
+        "ImageNet": RAW_DIR / "imagenet_sample",
+        "COCO": RAW_DIR / "coco_sample",
+        "Unsplash": RAW_DIR / "unsplash",
+        "GenImage": RAW_DIR / "genimage",
+        "ForenSynths": RAW_DIR / "forensynths",
     }
 
     print("\nData Sources Status:")
@@ -123,7 +129,7 @@ if __name__ == "__main__":
         check_data_sources()
     elif args.dataset == "forensynths":
         target = args.target or 10000
-        output_dir = args.output_dir or "data/raw/forensynths"
+        output_dir = args.output_dir or FORENSYNTHS_DIR
         success = download_forensynths(
             target_images=target,
             output_dir=output_dir
