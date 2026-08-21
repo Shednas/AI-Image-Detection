@@ -9,7 +9,7 @@ const FAQS = [
   },
   {
     q: "Which model should I use?",
-    a: "If you are not sure, use Hybrid. It combines spatial and frequency analysis and has the highest overall accuracy. CNN is a reliable alternative if you want faster results with similar precision. Use STM if you need a fully explainable result without GPU hardware. Only use FFT on its own if you are specifically testing frequency-domain detection."
+    a: "There is no safe default. CNN and Hybrid score highest on images resembling the training data, and detect almost nothing from generators absent from it. FFT is the weakest in that first setting and by far the strongest in the second. STM sits between the two and needs no GPU. Run more than one model and compare: when they disagree, that disagreement is itself informative, and it is the most honest signal this tool can give you."
   },
   {
     q: "How accurate are the models?",
@@ -46,14 +46,14 @@ const MODELS = [
     full: 'Frequency FFT',
     speed: 'Fast',
     auc: '67.1%',
-    desc: 'Analyses four learned radial frequency bands in the Fourier spectrum. Effective for detecting diffusion model signatures but limited on mixed GAN and diffusion datasets.',
+    desc: 'Analyses four learned radial frequency bands in the Fourier spectrum. Weakest of the four on the held-out test set, and the only one that holds up on generators absent from training, where it detects 85.2% against 1.38% for Hybrid.',
   },
   {
     name: 'Hybrid',
     full: 'Hybrid Fusion',
     speed: 'Slower',
     auc: '93.9%',
-    desc: 'Combines 2048-dim CNN spatial features and 256-dim FFT spectral features through a learned fusion network. Highest overall accuracy across all test conditions.',
+    desc: 'Combines 2048-dim CNN spatial features and 256-dim FFT spectral features through a learned fusion network. Leads on AUC and F1 on the held-out test set, and detects the least of any model on unseen generators at 1.38%.',
   },
   {
     name: 'STM',

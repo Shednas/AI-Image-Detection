@@ -1,13 +1,7 @@
 import { useRef, useState } from 'react'
 import { analyzeImage } from '../api/api'
 import { useSession } from '../session'
-
-const MODELS = [
-  { key: 'cnn', label: 'CNN', sub: 'Spatial - ResNet-50' },
-  { key: 'fft', label: 'FFT', sub: 'Frequency (Not Recommended)' },
-  { key: 'hybrid', label: 'Hybrid', sub: 'CNN + FFT fusion - Recommended' },
-  { key: 'stm', label: 'STM', sub: 'Handcrafted - CPU only' },
-]
+import { MODELS, DEFAULT_MODEL } from '../models'
 
 const ZONE_STYLES = {
   very_likely_real: { text: 'text-roast', bg: 'bg-teal-50 border-teal-200' },
