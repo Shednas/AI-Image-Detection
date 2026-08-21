@@ -9,6 +9,7 @@ from PIL import Image
 from torchvision import transforms
 
 from src.models.hybrid_model import HybridDetector
+from src.models.hybrid_proj_model import HybridProjDetector
 from src.evaluation.metrics import compute_metrics
 
 TRANSFORM = transforms.Compose([
@@ -83,17 +84,29 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default="chameleon", choices=["chameleon", "mnw", "all"])
     parser.add_argument("--degradation", type=str, default="none", choices=["none", "light", "heavy", "all"])
     parser.add_argument("--n_samples", type=int, default=200, help="Images per class to sample")
+    # both default to None so the existing paths are derived from --stage exactly
+    # as before when they are omitted
+    parser.add_argument("--checkpoint", type=str, default=None,
+                        help="Checkpoint to load, default checkpoints/hybrid/stage_N/best_hybrid.pt")
+    parser.add_argument("--results_dir", type=str, default=None,
+                        help="Where to write results, default results/hybrid/stage_N/unseen")
+    parser.add_argument("--model_class", type=str, default="hybrid",
+                        choices=["hybrid", "hybrid_proj"],
+                        help="Architecture to build before loading the checkpoint")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = Path(f"checkpoints/hybrid/stage_{args.stage}/best_hybrid.pt")
+    ckpt = Path(args.checkpoint or f"checkpoints/hybrid/stage_{args.stage}/best_hybrid.pt")
 
-    model = HybridDetector(image_size=256, num_bands=4).to(device)
+    # the checkpoint carries no record of its architecture, so a mismatch here
+    # loads without error and quietly predicts from the wrong fusion width
+    model_classes = {"hybrid": HybridDetector, "hybrid_proj": HybridProjDetector}
+    model = model_classes[args.model_class](image_size=256, num_bands=4).to(device)
     model.load_state_dict(torch.load(ckpt, map_location=device, weights_only=True))
     model.eval()
-    print(f"Loaded Hybrid Stage {args.stage} from {ckpt}")
+    print(f"Loaded {args.model_class} Stage {args.stage} from {ckpt}")
 
-    results_dir = Path(f"results/hybrid/stage_{args.stage}/unseen")
+    results_dir = Path(args.results_dir or f"results/hybrid/stage_{args.stage}/unseen")
     results_dir.mkdir(parents=True, exist_ok=True)
 
     datasets = ['chameleon', 'mnw'] if args.dataset == 'all' else [args.dataset]
@@ -105,7 +118,7 @@ if __name__ == "__main__":
         ai_paths = collect_paths(roots['ai'], args.n_samples) if roots.get('ai') else []
         print(f"\nDataset: {ds}  |  Real: {len(real_paths)}  AI: {len(ai_paths)}")
 
-        out = {"dataset": ds, "stage": args.stage, "model": "hybrid",
+        out = {"dataset": ds, "stage": args.stage, "model": args.model_class,
                "n_real": len(real_paths), "n_ai": len(ai_paths), "results": {}}
 
         for deg in degradations:
