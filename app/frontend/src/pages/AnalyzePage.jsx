@@ -140,9 +140,15 @@ function VizImage({ b64, alt }) {
   )
 }
 
-// placeholder for visualizations not yet implemented
-function ComingSoon() {
-  return <div className="h-10 rounded-lg bg-cappuccino/20 flex items-center justify-center text-xs text-cappuccino">Coming soon</div>
+// every visualisation is implemented, so a null payload means generation threw
+// for this image. Saying "coming soon" hid real failures behind a roadmap message.
+function VizFailed() {
+  return (
+    <div className="rounded-lg bg-cappuccino/20 px-3 py-4 text-center">
+      <p className="text-xs font-semibold text-roast">Could not be generated for this image</p>
+      <p className="text-xs text-cappuccino mt-0.5">The verdict above is unaffected. Details are in the backend log.</p>
+    </div>
+  )
 }
 
 export default function AnalyzePage() {
@@ -301,16 +307,16 @@ export default function AnalyzePage() {
 
                   {conflict && (
                     <div className="conflict-note">
-                      <p className="font-bold text-espresso mb-1">Why do metrics differ from the verdict?</p>
-                      <p>Low contrast or noise can occur naturally in: JPEG-compressed images, indoor or overcast shots, uniform subjects (walls, sky, screens), or images processed with phone HDR.</p>
-                      <p className="mt-1.5 font-semibold text-espresso">The model's verdict is based on deep learned features and is more reliable than these generic statistics.</p>
+                      <p className="font-bold text-espresso mb-1">Low contrast or noise does not mean AI</p>
+                      <p>Both are commonly low in JPEG-compressed images, indoor or overcast photographs, uniform subjects such as walls, sky and screens, and images processed with phone HDR.</p>
+                      <p className="mt-1.5">These two numbers are computed from the image and are shown for context. Except for STM, which uses noise and colour statistics among its inputs, no model on this page reads them, so they neither support nor contradict the verdict.</p>
                     </div>
                   )}
 
                   {viz?.heatmap && (
                     <div className="card p-5">
                       <p className="section-label">Grad-CAM Heatmap</p>
-                      {viz.heatmap.data ? <VizImage b64={viz.heatmap.data} alt="Grad-CAM heatmap" /> : <ComingSoon />}
+                      {viz.heatmap.data ? <VizImage b64={viz.heatmap.data} alt="Grad-CAM heatmap" /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.heatmap.description}</p>
                     </div>
                   )}
@@ -318,7 +324,7 @@ export default function AnalyzePage() {
                   {viz?.spectrogram && (
                     <div className="card p-5">
                       <p className="section-label">Frequency Spectrogram</p>
-                      {viz.spectrogram.data ? <VizImage b64={viz.spectrogram.data} alt="Frequency spectrogram" /> : <ComingSoon />}
+                      {viz.spectrogram.data ? <VizImage b64={viz.spectrogram.data} alt="Frequency spectrogram" /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.spectrogram.description}</p>
                     </div>
                   )}
@@ -326,7 +332,7 @@ export default function AnalyzePage() {
                   {viz?.feature_importance && (
                     <div className="card p-5">
                       <p className="section-label">Feature Contributions</p>
-                      {viz.feature_importance.data ? <FeatureChart data={viz.feature_importance.data} /> : <ComingSoon />}
+                      {viz.feature_importance.data ? <FeatureChart data={viz.feature_importance.data} /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.feature_importance.description}</p>
                     </div>
                   )}

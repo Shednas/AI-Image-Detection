@@ -22,8 +22,8 @@ MODEL_EXPLANATIONS = {
 }
 
 VERDICT_EXPLANATIONS = {
-    "AI_GENERATED": "The model classified this image as AI-generated. The confidence score reflects how strongly the features pointed toward synthetic origin.",
-    "AUTHENTIC": "The model classified this image as authentic. This may be a photograph, screenshot, digital art, scan, or any non-AI-generated image. The confidence score reflects how strongly the features pointed toward authentic, non-AI origin.",
+    "AI_GENERATED": "The model classified this image as AI-generated. Confidence reflects how strongly the features pointed toward that verdict.",
+    "AUTHENTIC": "The model classified this image as not AI-generated. Confidence reflects how strongly the features pointed toward that verdict. Note that the training data for this class is photographs, so screenshots, renders and scans land here by default rather than by evidence.",
 }
 
 FEATURE_GROUP_SLICES = {
