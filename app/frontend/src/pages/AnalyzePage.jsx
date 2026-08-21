@@ -11,19 +11,22 @@ const ZONE_STYLES = {
   very_likely_ai: { text: 'text-red-800', bg: 'bg-red-50 border-red-200' },
 }
 
+// Labels describe where the value sits, nothing more. They previously read as
+// evidence of AI origin, which fired on renders, screenshots and compressed
+// photographs regardless of the verdict. No model except STM reads these.
 const CONTRAST_ZONES = [
-  { max: 18, label: 'Very smooth - below natural range', text: 'text-orange-700' },
-  { max: 32, label: 'Below natural range', text: 'text-orange-600' },
-  { max: 72, label: 'Natural range', text: 'text-roast' },
-  { max: 90, label: 'Above natural - possibly processed', text: 'text-orange-600' },
-  { max: 999, label: 'Very high - possibly sharpened', text: 'text-orange-700' },
+  { max: 18, label: 'Very low', text: 'text-roast' },
+  { max: 32, label: 'Low', text: 'text-roast' },
+  { max: 72, label: 'Typical for photographs', text: 'text-roast' },
+  { max: 90, label: 'High', text: 'text-roast' },
+  { max: 999, label: 'Very high', text: 'text-roast' },
 ]
 
 const NOISE_ZONES = [
-  { max: 4, label: 'Almost no sensor noise', text: 'text-orange-700' },
-  { max: 8, label: 'Low camera fingerprint', text: 'text-orange-600' },
-  { max: 25, label: 'Natural camera noise level', text: 'text-teal-700' },
-  { max: 999, label: 'Strong camera signature', text: 'text-teal-600' },
+  { max: 4, label: 'Very low', text: 'text-roast' },
+  { max: 8, label: 'Low', text: 'text-roast' },
+  { max: 25, label: 'Typical for photographs', text: 'text-roast' },
+  { max: 999, label: 'High', text: 'text-roast' },
 ]
 
 // last zone acts as the fallback for values above all thresholds
@@ -76,9 +79,9 @@ function RGBHistogram({ data }) {
   const W = 260, H = 80, n = data.r.length, bw = W / n
   const smooth = data.smoothness
   const note =
-    smooth < 0.8 ? { t: 'Unusually uniform - possible AI smoothing', c: 'text-orange-600' } :
-    smooth < 1.5 ? { t: 'Moderately uniform', c: 'text-caramel' } :
-                   { t: 'Natural variation', c: 'text-roast' }
+    smooth < 0.8 ? { t: 'Low variation', c: 'text-roast' } :
+    smooth < 1.5 ? { t: 'Moderate variation', c: 'text-roast' } :
+                   { t: 'High variation', c: 'text-roast' }
   return (
     <div className="space-y-3">
       <svg width={W} height={H} className="block rounded-lg w-full" style={{ maxWidth: W }}>
@@ -97,11 +100,8 @@ function RGBHistogram({ data }) {
         </div>
         <span className={`font-bold text-xs ${note.c}`}>{note.t}</span>
       </div>
-      <div className="bg-cream rounded-lg p-3 border border-cappuccino/40 text-xs text-roast space-y-1.5">
-        <p className="font-bold text-espresso">What to look for</p>
-        <p><span className="font-semibold text-roast">Irregular spikes</span> across the range suggest natural, non-AI content.</p>
-        <p><span className="font-semibold text-orange-600">Smooth, flat curves</span> with few peaks are common in AI-generated images.</p>
-        <p><span className="font-semibold text-espresso">Heavy clipping</span> at 0 or 255 suggests JPEG compression or heavy processing.</p>
+      <div className="bg-cream rounded-lg p-3 border border-cappuccino/40 text-xs text-roast">
+        <p>Counts of pixels per brightness level for each channel. The variation figure is the standard deviation of those counts divided by their mean, so it is higher when the distribution is uneven. Clipping at 0 or 255 indicates clipped highlights or shadows.</p>
       </div>
     </div>
   )
@@ -184,6 +184,7 @@ export default function AnalyzePage() {
 
   const viz = result?.visualizations
   const isModelAI = result?.verdict === 'AI_GENERATED'
+  const isSTM = model === 'stm'
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -289,16 +290,29 @@ export default function AnalyzePage() {
                   {viz?.generic_metrics && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="card p-5 space-y-5">
+                        <div>
+                          <p className="section-label">{isSTM ? 'Image properties, partly used by STM' : 'Image properties'}</p>
+                          <p className="text-xs text-roast leading-relaxed">
+                            {isSTM
+                              ? 'Computed from the image. STM uses noise residuals and colour statistics among its 1,822 inputs, so for this model they are genuine evidence. Contrast is not one of its inputs.'
+                              : 'Computed from the image and shown for context. This model does not read them, so they neither support nor contradict the verdict above.'}
+                          </p>
+                        </div>
                         <Gauge label="Contrast" value={contrast} displayMax={100} zones={CONTRAST_ZONES}
-                          desc="Std of pixel brightness (x100). Natural images score 30-70. Low contrast also occurs in compressed, low-light, or uniform-background images." />
+                          desc="Standard deviation of pixel brightness, scaled by 100. Photographs commonly fall between 30 and 70. Uniform subjects, low light and compression all push it down." />
                         <div className="border-t border-cappuccino/40" />
                         <Gauge label="Sensor Noise" value={noise} displayMax={35} zones={NOISE_ZONES}
-                          desc="High-frequency residual std (x100). Real cameras imprint sensor noise (PRNU). Compression can suppress this in authentic images." />
+                          desc="Standard deviation of the high-frequency residual after subtracting a blurred copy, scaled by 100. Photographs commonly fall between 8 and 25. Compression and resizing reduce it." />
                       </div>
 
                       {viz?.rgb_distribution && (
                         <div className="card p-5">
                           <p className="section-label">RGB Distribution</p>
+                          <p className="text-xs text-roast leading-relaxed mb-3">
+                            {isSTM
+                              ? 'Colour statistics are among the features STM classifies on.'
+                              : 'Computed from the image, not read by this model.'}
+                          </p>
                           <RGBHistogram data={viz.rgb_distribution} />
                         </div>
                       )}
@@ -315,7 +329,7 @@ export default function AnalyzePage() {
 
                   {viz?.heatmap && (
                     <div className="card p-5">
-                      <p className="section-label">Grad-CAM Heatmap</p>
+                      <p className="section-label">What this model analysed: Grad-CAM Heatmap</p>
                       {viz.heatmap.data ? <VizImage b64={viz.heatmap.data} alt="Grad-CAM heatmap" /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.heatmap.description}</p>
                     </div>
@@ -323,7 +337,7 @@ export default function AnalyzePage() {
 
                   {viz?.spectrogram && (
                     <div className="card p-5">
-                      <p className="section-label">Frequency Spectrogram</p>
+                      <p className="section-label">What this model analysed: Frequency Spectrogram</p>
                       {viz.spectrogram.data ? <VizImage b64={viz.spectrogram.data} alt="Frequency spectrogram" /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.spectrogram.description}</p>
                     </div>
@@ -331,7 +345,7 @@ export default function AnalyzePage() {
 
                   {viz?.feature_importance && (
                     <div className="card p-5">
-                      <p className="section-label">Feature Contributions</p>
+                      <p className="section-label">What this model analysed: Feature Contributions</p>
                       {viz.feature_importance.data ? <FeatureChart data={viz.feature_importance.data} /> : <VizFailed />}
                       <p className="text-xs text-roast mt-3 leading-relaxed">{viz.feature_importance.description}</p>
                     </div>
