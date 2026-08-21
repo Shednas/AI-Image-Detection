@@ -225,6 +225,11 @@ def analyze_batch(
     if unsaved:
         warning = f"{unsaved} of these results could not be saved to History."
 
+    # p_real is dropped before the response: nothing reads it, and leaving the
+    # opposite direction beside p_ai invites a future edit to grab the wrong one
+    for r in raw_results:
+        r.pop("p_real", None)
+
     processed = sum(1 for r in raw_results if "error" not in r)
     if batch_saved:
         mark_batch(batch_id, BatchStatus.completed, processed, len(raw_results) - processed)

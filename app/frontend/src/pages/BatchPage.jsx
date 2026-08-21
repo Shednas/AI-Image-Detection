@@ -10,7 +10,7 @@ function Spinner() {
 
 export default function BatchPage() {
   const [zip, setZip] = useState(null)
-  const [model, setModel] = useState('stm')
+  const [model, setModel] = useState(DEFAULT_MODEL)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
@@ -28,7 +28,7 @@ export default function BatchPage() {
       setResult(data)
       if (data.session_id) setSessionId(data.session_id)
     }
-    catch (e) { setError(e.response?.data?.detail || 'Batch analysis failed.') }
+    catch (e) { setError(e.response?.data?.detail || 'Could not reach the server. Check that the backend is running and that /api/health reports ok.') }
     finally { setLoading(false) }
   }
   const reset = () => { setZip(null); setResult(null); setError(null) }
@@ -66,8 +66,11 @@ export default function BatchPage() {
             {MODELS.map(({ key, label, sub }) => (
               <button key={key} onClick={() => setModel(key)}
                 className={`model-btn ${model === key ? 'model-btn-on' : ''}`}>
-                <span className="font-bold text-sm">{label}</span>
-                <span className={`text-xs block mt-0.5 ${model === key ? 'text-cream/60' : 'text-roast'}`}>{sub}</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm">{label}</span>
+                  {model === key && <span className="text-xs opacity-60 font-mono">ON</span>}
+                </div>
+                <span className={`text-xs mt-0.5 block ${model === key ? 'text-cream/60' : 'text-roast'}`}>{sub}</span>
               </button>
             ))}
           </div>
@@ -81,14 +84,20 @@ export default function BatchPage() {
 
         {error && <p className="text-sm text-roast text-center py-2">{error}</p>}
 
+        {result?.warning && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+            <p className="text-xs font-bold text-orange-800">{result.warning}</p>
+          </div>
+        )}
+
         {result && (
           <div className="space-y-4 fade-in">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Total', value: result.total, color: 'text-espresso' },
-                { label: 'Valid', value: result.valid, color: 'text-roast' },
-                { label: 'AI', value: `${result.ai_count} (${result.ai_pct}%)`, color: 'text-espresso' },
-                { label: 'Real', value: `${result.real_count} (${result.real_pct}%)`, color: 'text-roast' },
+                { label: 'Files in zip', value: result.total, color: 'text-espresso' },
+                { label: 'Analysed', value: result.valid, color: 'text-roast' },
+                { label: 'AI, of analysed', value: `${result.ai_count} (${result.ai_pct}%)`, color: 'text-espresso' },
+                { label: 'Real, of analysed', value: `${result.real_count} (${result.real_pct}%)`, color: 'text-roast' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="card p-4 text-center">
                   <p className={`text-xl font-black tabular-nums ${color}`}>{value}</p>

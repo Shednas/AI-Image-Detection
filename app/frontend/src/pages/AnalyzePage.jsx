@@ -4,7 +4,7 @@ import { useSession } from '../session'
 import { MODELS, DEFAULT_MODEL } from '../models'
 
 const ZONE_STYLES = {
-  very_likely_real: { text: 'text-roast', bg: 'bg-teal-50 border-teal-200' },
+  very_likely_real: { text: 'text-teal-700', bg: 'bg-teal-50 border-teal-200' },
   likely_real: { text: 'text-teal-600', bg: 'bg-teal-50/60 border-teal-100' },
   uncertain: { text: 'text-caramel', bg: 'bg-latte border-cappuccino/60' },
   likely_ai: { text: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
@@ -154,7 +154,7 @@ function VizFailed() {
 export default function AnalyzePage() {
   const [image, setImage] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [model, setModel] = useState('fft')
+  const [model, setModel] = useState(DEFAULT_MODEL)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [showDetails, setShowDetails] = useState(false)
@@ -177,7 +177,7 @@ export default function AnalyzePage() {
       setResult(data)
       if (data.session_id) setSessionId(data.session_id)
     }
-    catch (e) { setError(e.response?.data?.detail || 'Analysis failed. Is the backend running?') }
+    catch (e) { setError(e.response?.data?.detail || 'Could not reach the server. Check that the backend is running and that /api/health reports ok.') }
     finally { setLoading(false) }
   }
   const reset = () => { setImage(null); setPreview(null); setResult(null); setError(null); setShowDetails(false) }
@@ -232,6 +232,12 @@ export default function AnalyzePage() {
         </div>
 
         {error && <p className="text-sm text-roast text-center py-2">{error}</p>}
+
+        {result?.warning && (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
+            <p className="text-xs font-bold text-orange-800">{result.warning}</p>
+          </div>
+        )}
 
         {result && (() => {
           const { zone, ai_pct, confidence_pct, model_name, latency_ms, model_explanation, verdict_explanation } = result

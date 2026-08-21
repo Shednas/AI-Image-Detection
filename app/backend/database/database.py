@@ -253,7 +253,12 @@ class DatabaseManager:
                 .join(ModelOutput, ModelOutput.request_id == InferenceRequest.request_id)
             )
             if search:
-                query = query.filter(InferenceRequest.file_name.ilike(f"%{search}%"))
+                # % and _ are ilike wildcards, so a filename containing either would
+                # otherwise match far more than the user typed
+                escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                query = query.filter(
+                    InferenceRequest.file_name.ilike(f"%{escaped}%", escape="\\")
+                )
             if category and category.lower() not in ("", "all"):
                 query = query.filter(InferenceRequest.final_verdict == category)
             records = query.order_by(InferenceRequest.scanned_at.desc()).all()

@@ -73,8 +73,17 @@ export default function HistoryPage() {
             ) : records.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
-                  <p className="text-roast text-sm">No records found</p>
-                  <p className="text-roast text-xs mt-1">Analyze an image to see history here</p>
+                  {search || category !== 'all' ? (
+                    <>
+                      <p className="text-roast text-sm">No results match this filter</p>
+                      <p className="text-roast text-xs mt-1">Clear the search or choose All verdicts to see everything</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-roast text-sm">No records yet</p>
+                      <p className="text-roast text-xs mt-1">Analyze an image to see history here</p>
+                    </>
+                  )}
                 </td>
               </tr>
             ) : records.map((r, i) => (
