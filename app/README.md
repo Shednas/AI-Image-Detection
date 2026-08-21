@@ -110,6 +110,11 @@ python -m uvicorn main:app --reload --port 8000
 an absolute path to the interpreter, so they break if the folder is ever moved.
 The module form does not.
 
+Then open http://localhost:8000/api/health and confirm it reports
+`"database": "up"` before going further. A missing or unreachable database does
+not stop the backend, it starts degraded, so analysis appears to work while every
+result silently fails to save.
+
 Frontend:
 
 ```powershell

@@ -24,6 +24,24 @@ Stage 3, held-out test set drawn from the training distribution:
 | STM | 75.35% | 74.28% | 77.08% | 75.65% | 83.59% |
 | FFT | 61.45% | 57.28% | 88.15% | 69.44% | 67.05% |
 
+Training used `{ai_generated: 0, real: 1}`, so real is the positive class and
+the precision and recall above are **for the real class**. Recall of 96.14%
+means Hybrid correctly identifies 96% of genuine photographs, not that it
+catches 96% of AI images. Derived from the same confusion matrices, recall on
+the AI class is:
+
+| Model | Real recall (above) | AI recall |
+|---|---|---|
+| CNN | 92.88% | 76.02% |
+| Hybrid | 96.14% | 72.37% |
+| STM | 77.08% | 73.64% |
+| FFT | 88.15% | 35.08% |
+
+FFT is the reason this matters. Its 88.15% in the table is the highest recall
+after Hybrid, while it detects only 35% of AI images in distribution, and 85% of
+them from the unseen generators below. Read the two tables together without this
+note and the numbers look contradictory.
+
 The same models against MNW, 10,000 images from generators absent from the
 training data. All are AI-generated, so the figure is the proportion correctly
 flagged:
@@ -60,8 +78,24 @@ Start with [app/README.md](app/README.md) to run the application, or
 
 ## Model weights
 
-Not in the repository. `best_cnn.pt` is 90MB and `best_hybrid.pt` is 97MB, past
-GitHub's limits.
+Four files, all Stage 3 checkpoints:
+
+| File | Size |
+|---|---|
+| `best_cnn.pt` | 90MB |
+| `best_hybrid.pt` | 96MB |
+| `best_fft.pt` | 1.7MB |
+| `stm_model.joblib` | 0.9MB |
+
+They belong in `app/backend/models/weights/`.
+
+**The submitted zip already contains them, so there is nothing to download.**
+They are excluded from git rather than from the submission: `best_cnn.pt` and
+`best_hybrid.pt` are past GitHub's 50MB warning and near its 100MB hard limit,
+so a clone of this repository will find that directory holding only a
+`.gitkeep`. Using checkpoints from a different stage will produce numbers that
+disagree with the dissertation.
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE). This covers the code only. The datasets are
