@@ -4,9 +4,9 @@ from src.training.trainer import TrainConfig, train
 
 # Training configuration for the Hybrid CNN+FFT detector
 HYBRID_CONFIG = TrainConfig(
-    model_type="hybrid_norm",
-    model_label="hybrid_norm",
-    checkpoint_filename="best_hybrid_norm.pt",
+    model_type="hybrid",
+    model_label="hybrid",
+    checkpoint_filename="best_hybrid.pt",
     lr=5e-5,
     default_epochs=15,
     patience=5,
