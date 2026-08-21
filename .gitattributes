@@ -1,0 +1,25 @@
+# Authoritative line-ending rules for the whole repository.
+#
+# Without this, committing from Windows warns on every file and a clone on
+# another platform sees the whole tree as modified. app/.gitattributes and
+# research/.gitattributes still exist and are redundant with this file; they are
+# kept for now so either folder stays self-contained if extracted on its own.
+* text=auto eol=lf
+
+# Marked explicitly rather than left to content detection, since a file wrongly
+# treated as text would be corrupted by normalisation. research/results holds 46
+# plot PNGs that neither subdirectory file covers: app/.gitattributes marks PNGs
+# but only reaches app/, and research/.gitattributes marks nothing as binary.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.pt binary
+*.pth binary
+*.ckpt binary
+*.joblib binary
+*.pkl binary
+*.npy binary
