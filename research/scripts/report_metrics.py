@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 RESULTS = Path("results")
-MODELS = ["cnn", "fft", "hybrid", "stm"]
+MODELS = ["cnn", "fft", "hybrid", "hybrid_norm", "hybrid_proj", "stm"]
 STAGES = [1, 2, 3]
 METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc"]
 DEGRADATIONS = ["none", "light", "heavy"]
@@ -84,11 +84,14 @@ def collect():
 
 
 def print_table(title, rows, columns):
+    # width follows the longest model name, so adding a variant does not shunt
+    # every column right of it out of alignment
+    name_w = max([len(m) for m in MODELS] + [5]) + 2
     print(f"\n{title}")
-    print("-" * (24 + 10 * len(columns)))
-    print(f"{'model':8}{'stage':>6}  {'split':16}" + "".join(f"{c:>10}" for c in columns))
+    print("-" * (name_w + 24 + 10 * len(columns)))
+    print(f"{'model':{name_w}}{'stage':>6}  {'split':16}" + "".join(f"{c:>10}" for c in columns))
     for r in rows:
-        print(f"{r['model']:8}{r['stage']:>6}  {r['split']:16}"
+        print(f"{r['model']:{name_w}}{r['stage']:>6}  {r['split']:16}"
               + "".join(f"{pct(r.get(c)):>10}" for c in columns))
 
 
