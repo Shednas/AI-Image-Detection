@@ -1,6 +1,6 @@
 # AI Image Detection, research
 
-Training and evaluation for the four detectors. Three nested stages of
+Training and evaluation for the four detectors. Three cumulative stages of
 increasing size, so results can be read as a function of training data volume.
 
 ## Requirements
@@ -8,84 +8,136 @@ increasing size, so results can be read as a function of training data volume.
 - Python 3.14.3
 - A CUDA GPU. Training on CPU is impractical.
 
+---
+
 ## Setup
 
+### Step 1: Create the environment
+
 ```powershell
+cd research
 python -m venv dissertation_env
 .\dissertation_env\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 ```
 
-Install PyTorch first, from its own index. This is a separate step because an
-`--index-url` inside `requirements.txt` would apply to every package in the
-file, not just torch:
+### Step 2: Install PyTorch
+
+Separately, because an `--index-url` inside `requirements.txt` applies to every
+package in the file rather than just torch.
 
 ```powershell
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
 ```
 
-Then everything else:
+Built against torch 2.12.0+cu132. Change the index URL if your driver needs a
+different CUDA build.
+
+### Step 3: Install everything else
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-Confirm the GPU is visible:
+### Step 4: Confirm the GPU is visible
 
 ```powershell
 python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
 ```
 
-Built against torch 2.12.0+cu132. If your driver needs a different CUDA build,
-change the index URL to match.
+Every command below runs from `research/` with the environment activated.
+
+---
 
 ## Data
 
-Nothing here is redistributed. `data/raw/` and `data/unseen/` ship as empty
+No dataset is redistributed here. `data/raw/` and `data/unseen/` ship as empty
 directories with `.gitkeep` markers showing where each source belongs.
 
-Scripted:
+### Step 1: Download the sources
+
+One source is scripted. `download_dataset.py` takes a dataset name, and
+`forensynths` is the only accepted value:
 
 ```powershell
 python scripts/download_dataset.py forensynths --target 10000
-python scripts/download_dataset.py --status-only   # report what is present
 ```
 
-Manual, each needing an account or a manual export:
+It also takes `--output-dir` to override the destination, and `--status-only` to
+report what is present without downloading.
+
+The rest are manual, each needing an account or a manual export:
 
 | Source | Destination | Notes |
 |---|---|---|
 | ImageNet | `data/raw/imagenet/` | registration required |
-| Unsplash | `data/raw/unsplash/` | manual download, then `scripts/extract_unsplash.py` |
 | COCO | `data/raw/coco/` | `train2017` and `val2017` |
 | CIFAKE | `data/raw/cifake/` | `FAKE/` and `REAL/` |
 | GenImage | `data/raw/genimage/` | one directory per generator |
 | Flickr30k | `data/raw/flickr30k/` | |
+| Unsplash | `data/raw/unsplash/` | download the metadata, then step 2 |
 | Chameleon | `data/unseen/chameleon/` | `fake/` and `real/` |
 
-MNW is a git repository, so clone it rather than downloading by hand:
+MNW is a git repository, so clone it:
 
 ```powershell
 git clone https://github.com/nsail-lab/MNW.git data/unseen/MNW
 ```
 
-Once the sources are in place, build the splits and process them. The splitter
-produces all three stages in one pass and guarantees no image is reused between
-them:
+### Step 2: Fetch the Unsplash images
+
+```powershell
+python scripts/extract_unsplash.py --target 4000
+```
+
+Resumable: already-downloaded URLs are tracked in
+`data/raw/unsplash/downloaded_urls.txt` and skipped. Also takes `--output-dir`,
+`--metadata-file`, `--random-sample`, `--delay`, and `--verify` to count what is
+already present without downloading.
+
+### Step 3: Check what is present
+
+```powershell
+python scripts/download_dataset.py --status-only
+```
+
+All seven sources should read OK before continuing.
+
+### Step 4: Build the splits
 
 ```powershell
 python scripts/split_dataset.py --seed 42
+```
+
+Produces all three stages in one pass and guarantees no image is reused between
+them. `--seed` is the only argument; there is no `--stage`.
+
+### Step 5: Validate and resize
+
+```powershell
 python scripts/process_data.py --stage 1
 python scripts/process_data.py --stage 2
 python scripts/process_data.py --stage 3
 ```
 
-Output lands in `data/processed/stage_N/{train,validation,test}/{real,ai_generated}/`.
-That directory is not tracked, since it is derived.
+Also takes `--target-size` (default 256) and `--dry-run` to report without
+writing or deleting.
+
+**This step is what the models were actually trained on.** Each image is
+converted to RGB, resized to 256x256 with LANCZOS, and re-saved as JPEG quality
+95, in place. It matters for evaluation, see the preprocessing note below.
+
+Output lands in
+`data/processed/stage_N/{train,validation,test}/{real,ai_generated}/`. That
+directory is derived and is not tracked.
+
+---
 
 ## Training
 
-One command per model per stage:
+Every training script takes `--stage`, which accepts 1, 2 or 3 and defaults to 2.
+All except `train_stm` and `train_fft_initial` also take `--epochs` to override
+the per-model default.
 
 ```powershell
 python -m src.training.train_cnn --stage 3
@@ -94,48 +146,168 @@ python -m src.training.train_hybrid --stage 3
 python -m src.training.train_stm --stage 3
 ```
 
-`--stage` accepts 1, 2 or 3 and defaults to 2. `train_fft_initial` trains the
-earlier FFT variant kept for comparison.
+### Variants kept for comparison
 
-Checkpoints go to `checkpoints/<model>/stage_N/`, metrics and plots to
-`results/<model>/stage_N/`. Checkpoints are not tracked; results are.
+```powershell
+python -m src.training.train_fft_initial --stage 3
+python -m src.training.train_hybrid_norm --stage 3
+python -m src.training.train_hybrid_proj --stage 3
+```
+
+`train_fft_initial` trains the earlier FFT architecture, `FFTDetectorInitial`.
+It takes `--stage` only.
+
+`train_hybrid_norm` trains `HybridNormDetector`, which L2 normalises both
+branches before concatenation. The two branches are 2048 and 256 dimensions with
+different natural scales, so unnormalised concatenation lets the CNN side
+dominate the fusion input.
+
+`train_hybrid_proj` trains `HybridProjDetector`, which normalises both branches
+and then projects the CNN branch from 2048 down to 256, so the two enter fusion
+at equal width as well as equal scale. Fusion input is 512 rather than 2304.
+
+Each writes to its own checkpoint and results tree with its own filename, so no
+variant can overwrite another:
+
+| Script | Checkpoint | Results |
+|---|---|---|
+| `train_hybrid` | `checkpoints/hybrid/stage_N/best_hybrid.pt` | `results/hybrid/stage_N/` |
+| `train_hybrid_norm` | `checkpoints/hybrid_norm/stage_N/best_hybrid_norm.pt` | `results/hybrid_norm/stage_N/` |
+| `train_hybrid_proj` | `checkpoints/hybrid_proj/stage_N/best_hybrid_proj.pt` | `results/hybrid_proj/stage_N/` |
+
+Checkpoints are not tracked; results are.
+
+---
 
 ## Evaluation
 
-Plots and test metrics for a trained checkpoint:
+### Held-out test set, plots and metrics
 
 ```powershell
 python -m src.evaluation.visualize --stage 3 --model cnn
 ```
 
-Unseen generators, with optional JPEG degradation:
+Both arguments are required. `--model` takes `cnn`, `fft`, `hybrid` or `stm`,
+and there is no option for the variant architectures.
+
+### Unseen generators
 
 ```powershell
-python -m src.evaluation.test_unseen_cnn --stage 3 --dataset all --degradation all
+python -m src.evaluation.test_unseen_cnn --stage 3 --dataset all --degradation all --n_samples 10000
+python -m src.evaluation.test_unseen_fft --stage 3 --dataset all --degradation all --n_samples 10000
+python -m src.evaluation.test_unseen_hybrid --stage 3 --dataset all --degradation all --n_samples 10000
+python -m src.evaluation.test_unseen_stm --stage 3 --dataset all --degradation all --n_samples 10000
 ```
 
-`--dataset` takes `chameleon`, `mnw` or `all`. `--degradation` takes `none`,
-`light`, `heavy` or `all`. The other three models have matching modules, and
-`test_unseen_fft` additionally takes `--model initial|improved`.
+All four share these arguments:
 
-Both commands are a straight cross-product over model and stage, so the full
-matrix is twelve invocations of each.
+| Argument | Default | Meaning |
+|---|---|---|
+| `--stage` | 3 | 1, 2 or 3 |
+| `--dataset` | `chameleon` | `chameleon`, `mnw` or `all` |
+| `--degradation` | `none` | `none`, `light`, `heavy` or `all`, JPEG re-encode at quality 75 and 25 |
+| `--n_samples` | 200 | images per class, see the warning below |
+| `--results_dir` | derived from `--stage` | where to write, so a comparison run cannot overwrite a published result |
+| `--match_training_preprocessing` | off | see below |
+| `--dump_probabilities` | off | see below |
+
+`test_unseen_hybrid` additionally takes `--checkpoint` to load a specific file,
+and `--model_class` accepting `hybrid`, `hybrid_norm` or `hybrid_proj`, which
+selects the architecture to build before loading. The other three load a fixed
+checkpoint: `checkpoints/MODEL/stage_N/`, and STM globs for `*.joblib` there
+since `train_stm` writes a run-specific filename.
+
+**`test_unseen_fft` does not take a `--model` argument.** It always loads
+`checkpoints/fft/stage_N/best_fft.pt`. Nothing evaluates the `train_fft_initial`
+checkpoint through this path.
+
+### `--n_samples` is per class and it matters
+
+It defaults to **200**. Every published result uses **10000**, which gives 10,000
+real and 10,000 AI on Chameleon, and 10,000 AI on MNW. Omitting it produces a
+different, much smaller sample that is not comparable with anything in the
+dissertation. The seed is fixed at 42, so passing the same count reproduces the
+same images.
+
+### `--match_training_preprocessing`
+
+Off by default, which preserves the behaviour every published result was
+produced with.
+
+The models were trained on images that `process_data.py` had already rewritten
+on disk: RGB, 256x256 via LANCZOS, JPEG quality 95. The unseen sets were never
+put through that step, so by default they reach the models at their original
+size, resized with bilinear interpolation and with no JPEG re-encode. This flag
+reproduces the training pipeline in memory, before the standard transform and
+before any degradation step, so an unseen set can be scored through the same
+chain the models were trained on. `data/unseen/` is never written to.
+
+**Results are not comparable across the two settings.** A run with the flag on
+and a run with it off are measuring different inputs, so always record which was
+used. The output JSON carries a `match_training_preprocessing` field for exactly
+this reason. Use `--results_dir` to keep the two apart:
+
+```powershell
+python -m src.evaluation.test_unseen_fft --stage 3 --dataset mnw --degradation none --n_samples 10000 --match_training_preprocessing --results_dir results/_preproc/fft_mnw_on
+```
+
+### `--dump_probabilities`
+
+Off by default. When on, writes `unseen_DATASET_probabilities.json` beside the
+metrics, holding one row per image with its filename, true label and raw
+probability. A threshold sweep then becomes a laptop job rather than another GPU
+run.
+
+The probability field is named `p_real`, not `prob`. Training used
+`{ai_generated: 0, real: 1}`, so the raw sigmoid is P(real) and
+**P(AI) = 1 - p_real**. `label` uses the same mapping. The file repeats this in
+a `note` field.
+
+### Tabulate every recorded metric
+
+```powershell
+python scripts/report_metrics.py
+python scripts/report_metrics.py --csv metrics.csv
+```
+
+Prints every metric per model per stage to four decimal places, so the
+dissertation can be checked against the files mechanically rather than by eye.
+Runs from any working directory.
+
+---
 
 ## Results
 
-`results/<model>/stage_N/` holds `test_metrics.json`, `training_history.json`,
+`results/MODEL/stage_N/` holds `test_metrics.json`, `training_history.json`,
 `plots/`, and for stage 3 an `unseen/` directory with the Chameleon and MNW
 evaluations. Headline numbers are in the root [README](../README.md).
 
-Labels follow `{ai_generated: 0, real: 1}` throughout, so a model's sigmoid
+`plots/` exists for the four primary models across all three stages, while the
+variant trees and the `_preproc/` runs record metrics only, since `visualize.py`
+covers the four primary models.
+
+**Labels follow `{ai_generated: 0, real: 1}` throughout**, so a model's sigmoid
 output is P(real), not P(AI). Every metric in this tree depends on that mapping.
 Reversing it inverts AUC and turns a detection rate into a miss rate.
+
+Because real is the positive class, the stored `precision`, `recall` and `f1`
+are all **for the real class**. Recall of 96% means the model identifies 96% of
+genuine photographs, not that it catches 96% of AI images. AI-class recall is
+not stored and must be derived from the confusion matrix as
+`cm[0][0] / sum(cm[0])`.
+
+MNW contains no real images, so ROC AUC is undefined there and precision, recall
+and F1 are zero by construction. Only the detection rate carries information, and
+it appears as `accuracy` in every script except `test_unseen_cnn`, which reports
+it as `detection_rate`.
+
+---
 
 ## Layout
 
 ```text
 data/           raw sources, processed splits, metadata
-scripts/        download, split and preprocess
+scripts/        download, split, preprocess, report
 src/models/     the four model definitions, duplicated in app/backend/models/
 src/training/   per-model entry points and the shared trainer
 src/evaluation/ metrics, visualisation, unseen-generator tests

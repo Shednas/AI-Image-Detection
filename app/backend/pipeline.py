@@ -47,6 +47,23 @@ MODEL_DISPLAY_NAMES = {
 
 WEIGHTS_DIR = Path(__file__).parent / "models" / "weights"
 
+# process_data.py rewrote every training image on disk before any model saw it:
+# RGB convert, 256x256 LANCZOS, re-encode as JPEG quality 95. Uploads never went
+# through that step, so the models were scoring a distribution they were not
+# trained on. Reproduced here in memory; nothing is written to disk.
+TRAINING_IMAGE_SIZE = 256
+TRAINING_JPEG_QUALITY = 95
+
+
+def apply_training_preprocessing(img: Image.Image, target_size: int = TRAINING_IMAGE_SIZE) -> Image.Image:
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    resized = img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    resized.save(buf, format="JPEG", quality=TRAINING_JPEG_QUALITY)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
 
 class InferencePipeline:
     def __init__(self):
@@ -131,6 +148,7 @@ class InferencePipeline:
     # ImageNet stats to match the training distribution
     def preprocess(self, image_bytes: bytes) -> torch.Tensor:
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img = apply_training_preprocessing(img)
         tensor = TRANSFORM(img).unsqueeze(0).to(self.device)
         return tensor
 

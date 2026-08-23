@@ -4,6 +4,9 @@ Undergraduate dissertation comparing four approaches to detecting AI-generated
 images, and a web application that runs all four so their disagreements can be
 inspected on a single image.
 
+Start with [app/README.md](app/README.md) to run the application, or
+[research/README.md](research/README.md) to retrain or reproduce the results.
+
 The four detectors are trained on the same data and evaluated on the same splits:
 
 | Model | Approach |
@@ -72,9 +75,6 @@ The two halves are independent. `app/` is submitted as a standalone deliverable
 and does not import from `research/`. The four model definitions are duplicated
 in both, kept in step by `app/backend/tests/test_model_sync.py`, which fails if
 they drift apart structurally.
-
-Start with [app/README.md](app/README.md) to run the application, or
-[research/README.md](research/README.md) to retrain or reproduce the results.
 
 ## Model weights
 

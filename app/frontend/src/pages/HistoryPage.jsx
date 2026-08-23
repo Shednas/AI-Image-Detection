@@ -38,7 +38,7 @@ export default function HistoryPage() {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && loadHistory()}
           className="flex-1 max-w-xs bg-latte border border-cappuccino/60 rounded-md px-4 py-2
-                     text-sm text-espresso placeholder-cappuccino
+                     text-sm text-espresso placeholder-roast
                      focus:outline-none focus:ring-2 focus:ring-caramel/40 focus:border-caramel"
         />
         <div className="ml-auto">
@@ -63,7 +63,7 @@ export default function HistoryPage() {
           <thead>
             <tr className="bg-latte border-b border-cappuccino/40">
               {['Record ID', 'Timestamp', 'File Name', 'Model', 'Verdict', 'P(AI)'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-bold text-roast uppercase tracking-wide">{h}</th>
+                <th key={h} className="px-4 py-3 text-left text-xs font-bold text-espresso uppercase tracking-wide">{h}</th>
               ))}
             </tr>
           </thead>
@@ -88,14 +88,14 @@ export default function HistoryPage() {
               </tr>
             ) : records.map((r, i) => (
               <tr key={i} className="hover:bg-latte/60 transition-colors">
-                <td className="px-4 py-3 font-mono text-xs text-cappuccino">{r.record_id}</td>
+                <td className="px-4 py-3 font-mono text-xs text-roast">{r.record_id}</td>
                 <td className="px-4 py-3 text-xs text-roast whitespace-nowrap">{new Date(r.timestamp).toLocaleString()}</td>
                 <td className="px-4 py-3 text-sm text-espresso truncate max-w-xs">{r.file_name}</td>
-                <td className="px-4 py-3 text-xs text-cappuccino">{r.model_name}</td>
+                <td className="px-4 py-3 text-xs text-roast">{r.model_name}</td>
                 <td className="px-4 py-3">
                   {r.verdict === 'AI_GENERATED'
-                    ? <span className="text-xs font-bold text-espresso">AI Generated</span>
-                    : <span className="text-xs font-bold text-roast">Authentic</span>
+                    ? <span className="text-xs font-bold text-cinnamon">AI Generated</span>
+                    : <span className="text-xs font-bold text-espresso">Authentic</span>
                   }
                 </td>
                 <td className="px-4 py-3 text-xs text-roast tabular-nums">

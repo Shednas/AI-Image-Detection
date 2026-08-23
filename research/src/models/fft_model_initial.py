@@ -24,12 +24,12 @@ class FFTDetectorInitial(nn.Module):
         )
 
     def fft_transform(self, x):
-        x   = torch.mean(x, dim=1, keepdim=True)
+        x = torch.mean(x, dim=1, keepdim=True)
         fft = torch.fft.fft2(x)
         fft = torch.fft.fftshift(fft, dim=(-2, -1))
         mag = torch.log1p(torch.abs(fft))
         mean = mag.mean(dim=(-2, -1), keepdim=True)
-        std  = mag.std(dim=(-2, -1), keepdim=True) + 1e-6
+        std = mag.std(dim=(-2, -1), keepdim=True) + 1e-6
         return (mag - mean) / std
 
     def forward(self, x):

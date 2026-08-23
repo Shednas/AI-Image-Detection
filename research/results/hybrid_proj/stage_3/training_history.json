@@ -1,0 +1,48 @@
+{
+  "stage": 3,
+  "model": "hybrid_proj",
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.4213,
+      "val_f1": 0.816,
+      "val_auc": 0.927
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.3028,
+      "val_f1": 0.842,
+      "val_auc": 0.9265
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.2573,
+      "val_f1": 0.8369,
+      "val_auc": 0.9291
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.2264,
+      "val_f1": 0.8285,
+      "val_auc": 0.9281
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.1948,
+      "val_f1": 0.83,
+      "val_auc": 0.9212
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.1615,
+      "val_f1": 0.8261,
+      "val_auc": 0.9274
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.1422,
+      "val_f1": 0.814,
+      "val_auc": 0.9243
+    }
+  ]
+}

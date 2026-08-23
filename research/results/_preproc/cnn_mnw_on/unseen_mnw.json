@@ -1,0 +1,15 @@
+{
+  "dataset": "mnw",
+  "stage": 3,
+  "model": "cnn",
+  "match_training_preprocessing": true,
+  "n_real": 0,
+  "n_ai": 10000,
+  "results": {
+    "none": {
+      "detection_rate": 0.1098,
+      "n_ai": 10000,
+      "note": "AI-only dataset; no real images - detection rate only"
+    }
+  }
+}

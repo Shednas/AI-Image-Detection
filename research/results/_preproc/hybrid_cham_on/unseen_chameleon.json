@@ -1,0 +1,27 @@
+{
+  "dataset": "chameleon",
+  "stage": 3,
+  "model": "hybrid",
+  "match_training_preprocessing": true,
+  "n_real": 10000,
+  "n_ai": 10000,
+  "results": {
+    "none": {
+      "accuracy": 0.56975,
+      "precision": 0.546237984753066,
+      "recall": 0.824,
+      "f1": 0.656966314530596,
+      "roc_auc": 0.62316726,
+      "confusion_matrix": [
+        [
+          3155,
+          6845
+        ],
+        [
+          1760,
+          8240
+        ]
+      ]
+    }
+  }
+}

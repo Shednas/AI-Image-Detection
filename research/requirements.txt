@@ -1,6 +1,4 @@
-# torch and torchvision are deliberately absent. They install from the PyTorch
-# CUDA index, and an --index-url line here would apply to every package below
-# it. Install them first, see README.md.
+# torch and torchvision install separately, see README.md
 
 pillow>=9.0.0
 numpy>=1.21.0
@@ -12,7 +10,6 @@ lightgbm>=4.0.0
 joblib>=1.0.0
 matplotlib>=3.5.0
 
-# dataset download
 datasets>=2.0.0
 huggingface_hub>=0.10.0
 modelscope>=1.0.0

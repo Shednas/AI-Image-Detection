@@ -11,21 +11,38 @@ with per-model visualisations and a searchable history.
 - PostgreSQL 18
 - A CUDA GPU is optional. Everything runs on CPU, more slowly.
 
+---
+
 ## Setup
 
-All paths are relative to the repository root.
+All commands start from the repository root. Follow the steps in order.
 
-### 1. Database
+### Step 1: Create the database
 
-Create the database. Any PostgreSQL client will do:
+Open pgAdmin, which is installed alongside PostgreSQL. Right-click **Databases**,
+choose **Create**, and name it `ai_detection`.
+
+If you prefer a terminal, use the full path to `psql`, since the PostgreSQL
+installer does not add it to PATH on Windows:
 
 ```powershell
-psql -U postgres -c "CREATE DATABASE ai_detection;"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE ai_detection;"
 ```
 
-Tables are created on first startup, so there is no migration step to run.
+Tables are created automatically on first startup.
 
-### 2. Backend
+### Step 2: Create the environment file
+
+Copy `app\backend\.env.example` to `app\backend\.env` and set your PostgreSQL
+password:
+
+```
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/ai_detection
+```
+
+The database name at the end must match the one created in step 1.
+
+### Step 3: Install the backend
 
 ```powershell
 cd app\backend
@@ -33,9 +50,7 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-Install PyTorch first, from its own index. This is a separate step because an
-`--index-url` inside `requirements.txt` applies to every package in the file,
-not just torch.
+Install PyTorch first, from its own index.
 
 With an NVIDIA GPU:
 
@@ -43,7 +58,7 @@ With an NVIDIA GPU:
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
 ```
 
-Without one, the CPU build from PyPI is enough. Everything runs, more slowly:
+Without one:
 
 ```powershell
 pip install torch torchvision
@@ -55,26 +70,16 @@ Then the rest:
 pip install -r ..\requirements.txt
 ```
 
-Check it before going further. Every model is PyTorch or depends on it, so a
-missing package fails at import rather than at request time:
+Confirm it worked:
 
 ```powershell
 python -c "import torch, lightgbm, skimage, scipy; print(torch.__version__, torch.cuda.is_available())"
 ```
 
-Copy `backend/.env.example` to `backend/.env` and set your password:
+### Step 4: Add the model weights
 
-```
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/ai_detection
-```
-
-The path is resolved relative to `backend/`, so it is found regardless of which
-directory you start uvicorn from.
-
-### 3. Model weights
-
-Download the four files from the release and put them in
-`backend/models/weights/`:
+The four weight files are included in this package. Place them in
+`app\backend\models\weights\`:
 
 ```
 best_cnn.pt
@@ -83,22 +88,26 @@ best_hybrid.pt
 stm_model.joblib
 ```
 
-All four are the Stage 3 checkpoints. Using a different stage will produce
-numbers that disagree with the dissertation.
+All four are Stage 3 checkpoints. Other stages produce numbers that disagree
+with the dissertation.
 
-### 4. Frontend
+### Step 5: Install the frontend
 
 ```powershell
 cd app\frontend
 npm install
 ```
 
-## Running
+npm reports several dependency advisories. These are in build tooling, not in
+code that runs in the browser. Do not run `npm audit fix`.
 
-Two terminals. Every path below starts from the repository root, so
-`cd` back there first if you are already inside one of these folders.
+---
 
-Backend:
+## Run the application
+
+Two terminals, both starting from the repository root.
+
+**Terminal 1, backend:**
 
 ```powershell
 cd app\backend
@@ -106,39 +115,26 @@ venv\Scripts\activate
 python -m uvicorn main:app --reload --port 8000
 ```
 
-`python -m uvicorn` rather than `uvicorn`: the `Scripts\*.exe` launchers hard-code
-an absolute path to the interpreter, so they break if the folder is ever moved.
-The module form does not.
-
-Then open http://localhost:8000/api/health and confirm it reports
-`"database": "up"` before going further. A missing or unreachable database does
-not stop the backend, it starts degraded, so analysis appears to work while every
-result silently fails to save.
-
-Frontend:
+**Terminal 2, frontend:**
 
 ```powershell
 cd app\frontend
 npm run dev
 ```
 
-Then open http://localhost:5173.
+Before using the application, open http://localhost:8000/api/health and confirm
+it reports `"database": "up"` and all four models `true`.
+
+A missing database does not stop the backend. It starts degraded, so analysis
+appears to work while every result silently fails to save.
+
+Then open **http://localhost:5173**.
 
 First startup loads all four models, which takes a couple of minutes on CPU.
-`GET /api/health` returns 200 once every model is loaded and the database
-answers, and 503 with a breakdown of what is missing otherwise. Check it before
-assuming something is broken.
 
-## Tests
+---
 
-```powershell
-cd app\backend
-venv\Scripts\activate
-pip install -r ..\requirements.txt -r ..\requirements-dev.txt
-pytest
-```
-
-## API
+## About the application
 
 | Endpoint | Purpose |
 |---|---|
@@ -147,24 +143,53 @@ pytest
 | `GET /api/history` | Past results, with optional search and category filters. |
 | `GET /api/health` | Per-model load state, database reachability, device. |
 
-Probabilities are reported as P(AI). Training used `{ai_generated: 0, real: 1}`,
-so the raw sigmoid is P(real); the conversion happens once, in `pipeline.predict`.
-
 Limits: 10MB per image, 100 images per zip, 200MB total uncompressed.
+
+Probabilities are reported as P(AI). Training used `{ai_generated: 0, real: 1}`,
+so the raw sigmoid output is P(real). The conversion happens once, in
+`pipeline.predict`.
+
+---
+
+## Additional information
+
+**Why PyTorch installs separately.** An `--index-url` line inside
+`requirements.txt` applies to every package in the file, not just torch.
+
+**Why `python -m uvicorn` rather than `uvicorn`.** The `Scripts\*.exe` launchers
+hard-code an absolute path to the interpreter, so they break if the folder is
+moved. The module form does not.
+
+**Running the tests.**
+
+```powershell
+cd app\backend
+venv\Scripts\activate
+pip install -r ..\requirements-dev.txt
+pytest
+```
+
+---
 
 ## Troubleshooting
 
-**`DATABASE_URL is not set`**
-`backend/.env` is missing. Copy `.env.example` and fill in the password.
+**`psql` is not recognised**
+PostgreSQL is installed but not on PATH. Use pgAdmin, or the full path shown in
+step 1.
 
-**Backend starts but `/api/health` returns 503**
-Read the body. It reports each model separately and the database state. A model
-reading `false` means its weights file is missing or unreadable.
+**`DATABASE_URL is not set`**
+`app\backend\.env` is missing. See step 2.
+
+**`/api/health` returns 503**
+Read the response body. It reports each model and the database separately. A
+model reading `false` means its weights file is missing from
+`app\backend\models\weights\`. `"database": "down"` means the database name or
+password in `.env` does not match step 1.
 
 **`port 8000 is already in use`**
-`netstat -ano | findstr :8000`, then `taskkill /PID <pid>`, or start uvicorn on
-another port and update the CORS origin in `backend/main.py`.
+Run `netstat -ano | findstr :8000`, then `taskkill /PID <pid>`. Or start uvicorn
+on another port and update the CORS origin in `app\backend\main.py`.
 
 **CORS errors in the browser**
-The backend allows `http://localhost:5173` only. If Vite picked a different
-port, update the origin.
+The backend allows `http://localhost:5173` only. If Vite chose a different port,
+update the origin in `app\backend\main.py`.

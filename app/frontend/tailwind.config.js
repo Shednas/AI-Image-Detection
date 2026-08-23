@@ -11,6 +11,7 @@ export default {
         latte: '#ede8de',
         cappuccino: '#c9bba7',
         caramel: '#b07030',
+        cinnamon: '#9a3412',
         roast: '#7a5030',
         espresso: '#1c0e06',
       },

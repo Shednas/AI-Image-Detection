@@ -1,0 +1,27 @@
+{
+  "dataset": "chameleon",
+  "stage": 3,
+  "model": "cnn",
+  "match_training_preprocessing": true,
+  "n_real": 10000,
+  "n_ai": 10000,
+  "results": {
+    "none": {
+      "accuracy": 0.5292,
+      "precision": 0.5201074232199422,
+      "recall": 0.7553,
+      "f1": 0.6160182693091918,
+      "roc_auc": 0.570491235,
+      "confusion_matrix": [
+        [
+          3031,
+          6969
+        ],
+        [
+          2447,
+          7553
+        ]
+      ]
+    }
+  }
+}

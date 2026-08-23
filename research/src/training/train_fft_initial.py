@@ -11,7 +11,7 @@ from src.evaluation.metrics import evaluate_logits
 
 def train(stage: int = 1):
     use_cuda = torch.cuda.is_available()
-    device   = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda" if use_cuda else "cpu")
 
     if use_cuda:
         print(f"Using GPU: {torch.cuda.get_device_name(0)}")
@@ -33,10 +33,10 @@ def train(stage: int = 1):
         image_size=256
     )
 
-    model     = FFTDetectorInitial().to(device)
+    model = FFTDetectorInitial().to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    scaler    = GradScaler("cuda") if use_cuda else None
+    scaler = GradScaler("cuda") if use_cuda else None
 
     best_val_f1 = 0.0
     os.makedirs("checkpoints/fft", exist_ok=True)
@@ -55,13 +55,13 @@ def train(stage: int = 1):
             if use_cuda:
                 with autocast("cuda"):
                     logits = model(images).squeeze(1)
-                    loss   = criterion(logits, labels)
+                    loss = criterion(logits, labels)
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 logits = model(images).squeeze(1)
-                loss   = criterion(logits, labels)
+                loss = criterion(logits, labels)
                 loss.backward()
                 optimizer.step()
 

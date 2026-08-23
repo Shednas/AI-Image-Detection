@@ -1,0 +1,27 @@
+{
+  "dataset": "chameleon",
+  "stage": 3,
+  "model": "fft",
+  "match_training_preprocessing": true,
+  "n_real": 10000,
+  "n_ai": 10000,
+  "results": {
+    "none": {
+      "accuracy": 0.5649,
+      "precision": 0.5602376090588453,
+      "recall": 0.6036,
+      "f1": 0.5811110041397901,
+      "roc_auc": 0.597716235,
+      "confusion_matrix": [
+        [
+          5262,
+          4738
+        ],
+        [
+          3964,
+          6036
+        ]
+      ]
+    }
+  }
+}

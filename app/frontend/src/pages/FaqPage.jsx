@@ -171,7 +171,7 @@ function Section({ n, title, children }) {
   return (
     <div className="card p-6">
       <p className="text-lg font-black text-espresso mb-4">
-        <span className="text-cappuccino mr-2">{n}</span>{title}
+        <span className="text-espresso mr-2">{n}</span>{title}
       </p>
       {children}
     </div>
@@ -185,7 +185,7 @@ export default function FaqPage() {
 
       <div className="card p-6 border-caramel/40 bg-latte">
         <p className="text-lg font-black text-espresso mb-3">
-          <span className="text-cappuccino mr-2">1</span>Before you start
+          <span className="text-espresso mr-2">1</span>Before you start
         </p>
         <div className="space-y-2">
           {DISCLAIMER.map((line, i) => (

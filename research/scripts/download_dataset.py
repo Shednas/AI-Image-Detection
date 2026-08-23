@@ -65,7 +65,7 @@ def download_forensynths(target_images=10000, output_dir=FORENSYNTHS_DIR):
             if idx < 10:
                 print(f"   Image {idx} failed: {str(e)[:50]}")
 
-    print(f"\nDone: {successful} downloaded, {failed} failed → {output_dir}/")
+    print(f"\nDone: {successful} downloaded, {failed} failed, into {output_dir}/")
 
     return successful > 0
 

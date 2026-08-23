@@ -139,7 +139,7 @@ def download_unsplash_images(target_images=4000, output_dir=UNSPLASH_DIR,
             if idx < 5:
                 print(f"  Image {idx} failed: {str(e)[:60]}")
 
-    print(f"\nDone: {successful} downloaded, {failed} failed → {output_dir}/")
+    print(f"\nDone: {successful} downloaded, {failed} failed, into {output_dir}/")
 
     _append_downloaded_urls(manifest_path, new_downloaded_urls)
     print(f"  Updated manifest: {manifest_path}")

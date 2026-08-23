@@ -14,7 +14,7 @@
   .model-btn-on { @apply bg-espresso text-cream border-espresso; }
   .btn-primary { @apply bg-espresso text-cream rounded-md px-10 py-3 font-semibold text-sm hover:bg-roast disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150; }
   .btn-secondary { @apply bg-transparent text-espresso rounded-md px-5 py-2.5 border border-cappuccino font-medium text-sm hover:bg-latte transition-colors duration-150; }
-  .section-label { @apply text-xs font-bold text-roast uppercase tracking-widest mb-3; }
+  .section-label { @apply text-xs font-bold text-espresso uppercase tracking-widest mb-3; }
   .page-title { @apply text-4xl font-black tracking-tight text-espresso mb-6; }
   .conflict-note { @apply bg-latte border border-cappuccino rounded-lg p-4 text-sm text-roast; }
 }

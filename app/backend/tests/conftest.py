@@ -1,10 +1,6 @@
-"""Shared fixtures.
-
-Importing main constructs a DatabaseManager, which connects to PostgreSQL. Every
-fixture here replaces that and the inference pipeline with stubs, so the bulk of
-the suite runs with no database and no model weights on disk. Tests that need a
-real database ask for the `postgres_url` fixture and skip when it is absent.
-"""
+# Shared fixtures. Importing main constructs a DatabaseManager, so every fixture
+# here replaces it and the pipeline with stubs; the suite needs no database and no
+# model weights. Tests that do need PostgreSQL take postgres_url and skip without it.
 
 import io
 import os
@@ -29,15 +25,15 @@ os.environ.setdefault("DATABASE_URL", "postgresql://unused:unused@127.0.0.1:1/un
 SESSION_ID = "11111111-1111-1111-1111-111111111111"
 
 
+# A valid PNG, for tests that need real image bytes rather than a filename.
 def png_bytes(size=(32, 32), colour=(120, 120, 120)):
-    """A valid PNG, for tests that need real image bytes rather than a filename."""
     buf = io.BytesIO()
     Image.new("RGB", size, colour).save(buf, format="PNG")
     return buf.getvalue()
 
 
+# Build a zip in memory from (name, bytes) pairs.
 def make_zip(entries):
-    """Build a zip in memory from (name, bytes) pairs."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in entries:
@@ -50,13 +46,9 @@ class FakeSessionTracker:
         return SESSION_ID
 
 
+# Records what the endpoints tried to write, and can be told to fail, since a failed
+# write should still return the verdict with a warning rather than lose it.
 class FakeDb:
-    """Records what the endpoints tried to write, and can be told to fail.
-
-    Failure is a first-class case: the endpoints are meant to return the verdict
-    with a warning rather than losing it when the database is down.
-    """
-
     def __init__(self, fail_save_batch=False, fail_requests=False):
         self.fail_save_batch = fail_save_batch
         self.fail_requests = fail_requests
@@ -91,16 +83,16 @@ class FakeDb:
         return []
 
 
+# Stands in for InferencePipeline without loading 189MB of weights.
 class FakePipeline:
-    """Stands in for InferencePipeline without loading 189MB of weights."""
-
     def __init__(self, loaded=None, device="cpu"):
         self.device = device
         self.loaded = loaded or {"cnn": True, "fft": True, "hybrid": True, "stm": True}
         self.cnn = self.fft = self.hybrid = self.stm = object()
 
+    # Called by the lifespan handler, which the TestClient runs on entry.
     def load_models(self, weights_dir=None):
-        """Called by the lifespan handler, which the TestClient runs on entry."""
+        pass
 
     def is_loaded(self, name):
         return self.loaded.get(name, False)
@@ -128,9 +120,8 @@ class FakePipeline:
         }
 
 
+# Skips visualisation rendering, which is slow and not what these tests cover.
 class FakeResultsHandler:
-    """Skips visualisation rendering, which is slow and not what these tests cover."""
-
     def format_single(self, raw, image_bytes, model_name, image_tensor=None, model=None):
         return {
             "model_name": raw["model_name"],
@@ -146,9 +137,9 @@ class FakeResultsHandler:
         return {"total": len(results), "valid": len(valid), "rows": results}
 
 
+# main with its database, pipeline and results handler replaced by stubs.
 @pytest.fixture
 def app_module(monkeypatch):
-    """main with its database, pipeline and results handler replaced by stubs."""
     import main
 
     monkeypatch.setattr(main, "db", FakeDb())
@@ -158,26 +149,20 @@ def app_module(monkeypatch):
     return main
 
 
+# TestClient returning the 500 response instead of re-raising, so the handler that
+# turns an error into a response is exercised rather than bypassed.
 @pytest.fixture
 def client(app_module):
-    """TestClient that returns the 500 response instead of re-raising.
-
-    Without raise_server_exceptions=False an unhandled error propagates into the
-    test rather than exercising the handler that turns it into a response.
-    """
     from fastapi.testclient import TestClient
 
     with TestClient(app_module.app, raise_server_exceptions=False) as c:
         yield c
 
 
+# Connection URL for tests needing a real database, or skip, so a fresh clone with no
+# PostgreSQL gets a clean run rather than failures about something never installed.
 @pytest.fixture
 def postgres_url():
-    """Connection URL for the tests that need a real database, or skip.
-
-    A fresh clone with no PostgreSQL should get a clean run, not a wall of
-    failures about something the grader was never asked to install.
-    """
     from dotenv import dotenv_values
 
     # read .env directly, since os.environ deliberately holds the dead address

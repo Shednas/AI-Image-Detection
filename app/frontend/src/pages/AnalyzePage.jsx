@@ -3,14 +3,6 @@ import { analyzeImage } from '../api/api'
 import { useSession } from '../session'
 import { MODELS, DEFAULT_MODEL } from '../models'
 
-const ZONE_STYLES = {
-  very_likely_real: { text: 'text-teal-700', bg: 'bg-teal-50 border-teal-200' },
-  likely_real: { text: 'text-teal-600', bg: 'bg-teal-50/60 border-teal-100' },
-  uncertain: { text: 'text-caramel', bg: 'bg-latte border-cappuccino/60' },
-  likely_ai: { text: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
-  very_likely_ai: { text: 'text-red-800', bg: 'bg-red-50 border-red-200' },
-}
-
 // Labels describe where the value sits, nothing more. They previously read as
 // evidence of AI origin, which fired on renders, screenshots and compressed
 // photographs regardless of the verdict. No model except STM reads these.
@@ -47,14 +39,14 @@ function UploadIcon() {
   )
 }
 
-// slider-style metric display with zone-based color coding
+// slider-style metric display with zone-based colour coding
 function Gauge({ label, value, displayMax, zones, desc }) {
   const z = getZone(value, zones)
   const pct = Math.min((value / displayMax) * 100, 99)
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between">
-        <span className="text-xs font-bold text-roast uppercase tracking-widest">{label}</span>
+        <span className="text-xs font-bold text-espresso uppercase tracking-widest">{label}</span>
         <span className={`text-2xl font-black tabular-nums ${z.text}`}>{value}</span>
       </div>
       <div className="relative h-2 rounded-full bg-cappuccino/30">
@@ -130,7 +122,7 @@ function FeatureChart({ data }) {
   )
 }
 
-// wraps base64 visualization images from backend
+// wraps base64 visualisation images from backend
 function VizImage({ b64, alt }) {
   return (
     <div className="flex justify-center bg-espresso/5 rounded-lg p-2">
@@ -146,7 +138,7 @@ function VizFailed() {
   return (
     <div className="rounded-lg bg-cappuccino/20 px-3 py-4 text-center">
       <p className="text-xs font-semibold text-roast">Could not be generated for this image</p>
-      <p className="text-xs text-cappuccino mt-0.5">The verdict above is unaffected. Details are in the backend log.</p>
+      <p className="text-xs text-roast mt-0.5">The verdict above is unaffected. Details are in the backend log.</p>
     </div>
   )
 }
@@ -234,14 +226,13 @@ export default function AnalyzePage() {
         {error && <p className="text-sm text-roast text-center py-2">{error}</p>}
 
         {result?.warning && (
-          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
-            <p className="text-xs font-bold text-orange-800">{result.warning}</p>
+          <div className="rounded-lg border border-cinnamon bg-cinnamon/10 px-4 py-3">
+            <p className="text-xs font-bold text-cinnamon">{result.warning}</p>
           </div>
         )}
 
         {result && (() => {
           const { zone, ai_pct, confidence_pct, model_name, latency_ms, model_explanation, verdict_explanation } = result
-          const zoneStyle = ZONE_STYLES[zone?.key] ?? ZONE_STYLES.uncertain
           const pct = Math.min(Math.max(ai_pct, 1), 99)
           const contrast = viz?.generic_metrics?.contrast
           const noise = viz?.generic_metrics?.noise
@@ -251,28 +242,37 @@ export default function AnalyzePage() {
           return (
             <div className="space-y-4 fade-in">
 
-              <div className={`rounded-lg border p-5 ${zoneStyle.bg}`}>
+              <div className="card p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
-                    <p className={`text-2xl font-black ${zoneStyle.text}`}>{zone?.label}</p>
+                    <p className="text-2xl font-black text-espresso">{zone?.label}</p>
                     <p className="text-sm text-roast mt-1">
                       <span className="font-bold">{confidence_pct}%</span> confidence
                       <span className="text-roast mx-2">/</span>
                       P(AI) = {ai_pct}%
                     </p>
+                    {/* keyed off the result, not the selector: changing the model
+                        after an analysis leaves the old result on screen */}
+                    {model_name === 'Frequency_FFT' && (
+                      <p className="text-xs text-roast mt-1">
+                        FFT compresses its output: P(AI) never exceeded 67% on the held-out
+                        test set, so a value just above 50% is relatively strong evidence
+                        from this model.
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-cappuccino text-right">{model_name} / {latency_ms} ms</p>
+                  <p className="text-xs text-roast text-right">{model_name} / {latency_ms} ms</p>
                 </div>
                 <div className="mt-4 relative">
-                  <div className="h-4 rounded-full"
+                  <div className="h-2 rounded-full"
                     style={{ background: 'linear-gradient(to right,#0d9488,#84cc16,#eab308,#f97316,#dc2626)' }} />
-                  <div className="absolute top-0 w-5 h-5 rounded-full bg-cream border-2 border-espresso shadow-md -translate-y-0.5 transition-all duration-700"
-                    style={{ left: `calc(${pct}% - 10px)` }} />
+                  <div className="absolute -top-1 w-4 h-4 rounded-full bg-cream border-2 border-caramel transition-all duration-700"
+                    style={{ left: `calc(${pct}% - 8px)` }} />
                 </div>
-                <div className="flex justify-between text-xs font-bold mt-2">
-                  <span className="text-roast">Real (0)</span>
-                  <span className="text-caramel">Uncertain (0.5)</span>
-                  <span className="text-espresso">AI (1)</span>
+                <div className="flex justify-between text-xs font-medium mt-2 text-roast">
+                  <span>Real (0)</span>
+                  <span>Uncertain (0.5)</span>
+                  <span>AI (1)</span>
                 </div>
               </div>
 

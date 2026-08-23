@@ -43,7 +43,7 @@ class DataProcessor:
             return "ok"
 
         except Exception as e:
-            logger.warning(f"Invalid/resize failed — {img_path.name}: {str(e)[:60]}")
+            logger.warning(f"Invalid/resize failed, {img_path.name}: {str(e)[:60]}")
             if not self.dry_run:
                 img_path.unlink(missing_ok=True)
             return "corrupted"
@@ -103,7 +103,7 @@ class DataProcessor:
             fake = labels["ai_generated"]
             total = real["valid"] + fake["valid"]
             logger.info(
-                f"  {split.upper():12} — "
+                f"  {split.upper():12}  "
                 f"Real: {real['valid']:4d}/{real['total']:4d}  |  "
                 f"AI: {fake['valid']:4d}/{fake['total']:4d}  |  "
                 f"Total: {total}"
@@ -134,7 +134,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--target-size", type=int, default=256,
-        help="Target image size in pixels — images are resized to a square (default: 256)",
+        help="Target image size in pixels, resized to a square (default: 256)",
     )
     parser.add_argument(
         "--dry-run", action="store_true",

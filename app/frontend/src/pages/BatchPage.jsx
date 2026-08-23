@@ -55,6 +55,7 @@ export default function BatchPage() {
                   </svg>
                   <p className="text-base font-semibold text-roast">Upload Batch</p>
                   <p className="text-xs text-roast mt-1">Drag a .zip folder or click to select</p>
+                  <p className="text-xs text-roast mt-1">Up to 100 images per zip, 10MB per image, 200MB uncompressed in total.</p>
                 </>
             }
           </div>
@@ -85,8 +86,8 @@ export default function BatchPage() {
         {error && <p className="text-sm text-roast text-center py-2">{error}</p>}
 
         {result?.warning && (
-          <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
-            <p className="text-xs font-bold text-orange-800">{result.warning}</p>
+          <div className="rounded-lg border border-cinnamon bg-cinnamon/10 px-4 py-3">
+            <p className="text-xs font-bold text-cinnamon">{result.warning}</p>
           </div>
         )}
 
@@ -94,14 +95,14 @@ export default function BatchPage() {
           <div className="space-y-4 fade-in">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: 'Files in zip', value: result.total, color: 'text-espresso' },
-                { label: 'Analysed', value: result.valid, color: 'text-roast' },
-                { label: 'AI, of analysed', value: `${result.ai_count} (${result.ai_pct}%)`, color: 'text-espresso' },
-                { label: 'Real, of analysed', value: `${result.real_count} (${result.real_pct}%)`, color: 'text-roast' },
-              ].map(({ label, value, color }) => (
+                { label: 'Files in zip', value: result.total },
+                { label: 'Analysed', value: result.valid },
+                { label: 'AI, of analysed', value: `${result.ai_count} (${result.ai_pct}%)` },
+                { label: 'Real, of analysed', value: `${result.real_count} (${result.real_pct}%)` },
+              ].map(({ label, value }) => (
                 <div key={label} className="card p-4 text-center">
-                  <p className={`text-xl font-black tabular-nums ${color}`}>{value}</p>
-                  <p className="text-xs text-cappuccino mt-0.5 font-semibold uppercase tracking-wide">{label}</p>
+                  <p className="text-xl font-black tabular-nums text-espresso">{value}</p>
+                  <p className="text-xs text-roast mt-0.5 font-semibold uppercase tracking-wide">{label}</p>
                 </div>
               ))}
             </div>
@@ -111,27 +112,27 @@ export default function BatchPage() {
                 <thead>
                   <tr className="bg-latte border-b border-cappuccino/40">
                     {['File', 'Verdict', 'P(AI)', 'Model', 'Latency'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-roast uppercase tracking-wide">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs font-bold text-espresso uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cappuccino/20">
                   {result.rows.map((row, i) => (
                     <tr key={i} className="hover:bg-latte/50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-xs text-roast max-w-xs truncate">{row.file_name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-espresso max-w-xs truncate">{row.file_name}</td>
                       <td className="px-4 py-2.5">
                         {row.error
-                          ? <span className="text-xs text-cappuccino italic">Error</span>
+                          ? <span className="text-xs text-roast italic">Error</span>
                           : row.verdict === 'AI_GENERATED'
-                            ? <span className="text-xs font-bold text-espresso">AI Generated</span>
-                            : <span className="text-xs font-bold text-roast">Authentic</span>
+                            ? <span className="text-xs font-bold text-cinnamon">AI Generated</span>
+                            : <span className="text-xs font-bold text-espresso">Authentic</span>
                         }
                       </td>
                       <td className="px-4 py-2.5 text-xs text-roast tabular-nums">
                         {row.p_ai != null ? `${(row.p_ai * 100).toFixed(1)}%` : '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-cappuccino">{row.model_name ?? '-'}</td>
-                      <td className="px-4 py-2.5 text-xs text-cappuccino tabular-nums">{row.latency_ms != null ? `${row.latency_ms} ms` : '-'}</td>
+                      <td className="px-4 py-2.5 text-xs text-roast">{row.model_name ?? '-'}</td>
+                      <td className="px-4 py-2.5 text-xs text-roast tabular-nums">{row.latency_ms != null ? `${row.latency_ms} ms` : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
