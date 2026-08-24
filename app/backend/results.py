@@ -87,9 +87,14 @@ class ResultsHandler:
         }
 
     def _build_visualizations(self, image_bytes, raw_output, model_name, image_tensor, model):
+        # 256x256 is what every model is fed, so these panels describe the same
+        # pixels the verdict came from. Decoded once and shared, since each panel
+        # used to re-decode the upload for itself.
+        img_256 = Image.open(io.BytesIO(image_bytes)).convert("RGB").resize((256, 256))
+
         viz = {
-            "rgb_distribution": self.generate_rgb_distribution(image_bytes),
-            "generic_metrics": self.generate_generic_metrics(image_bytes),
+            "rgb_distribution": self.generate_rgb_distribution(img_256),
+            "generic_metrics": self.generate_generic_metrics(img_256),
         }
 
         if model_name in ("cnn", "hybrid"):
@@ -98,7 +103,7 @@ class ResultsHandler:
                 # hybrid holds its ResNet as cnn_branch, cnn wraps it as backbone
                 target_layer = model.backbone.layer4 if model_name == "cnn" else model.cnn_branch.layer4
                 heatmap_data = self._safe_gradcam(
-                    image_tensor, model, target_layer, image_bytes, raw_output["verdict"]
+                    image_tensor, model, target_layer, img_256, raw_output["verdict"]
                 )
 
             description = (
@@ -116,7 +121,7 @@ class ResultsHandler:
 
         if model_name in ("fft", "hybrid"):
             viz["spectrogram"] = {
-                "data": self.generate_frequency_map(image_bytes),
+                "data": self.generate_frequency_map(img_256),
                 "description": (
                     "Frequency spectrogram shows the energy distribution across the image spectrum (DC at centre). "
                     "AI generators often introduce periodic spikes or unnatural energy concentrations in mid-to-high frequency bands."
@@ -136,8 +141,7 @@ class ResultsHandler:
         return viz
 
     # smoothness ratio flags AI over-smoothing of channel distributions
-    def generate_rgb_distribution(self, image_bytes):
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    def generate_rgb_distribution(self, img):
         arr = np.array(img)
         bins = list(range(0, 257, 8))
         r_hist, _ = np.histogram(arr[:, :, 0].ravel(), bins=bins)
@@ -154,8 +158,7 @@ class ResultsHandler:
         }
 
     # gaussian residual is a crude proxy for sensor PRNU noise
-    def generate_generic_metrics(self, image_bytes):
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    def generate_generic_metrics(self, img):
         arr = np.array(img, dtype=np.float32) / 255.0
         gray = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
         contrast = round(float(gray.std() * 100), 1)
@@ -164,8 +167,7 @@ class ResultsHandler:
         return {"contrast": contrast, "noise": noise}
 
     # hanning window reduces spectral leakage at image borders
-    def generate_frequency_map(self, image_bytes):
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB").resize((256, 256))
+    def generate_frequency_map(self, img):
         arr = np.array(img, dtype=np.float32) / 255.0
         gray = 0.2989 * arr[:, :, 0] + 0.5870 * arr[:, :, 1] + 0.1140 * arr[:, :, 2]
         window = np.outer(np.hanning(256), np.hanning(256))
@@ -205,16 +207,16 @@ class ResultsHandler:
         return f"{MODEL_EXPLANATIONS.get(model_name, '')} {VERDICT_EXPLANATIONS.get(verdict, '')}"
 
     # Grad-CAM can fail on some model/input combos; return None rather than 500
-    def _safe_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
+    def _safe_gradcam(self, image_tensor, model, target_layer, img_256, verdict):
         try:
-            return self._generate_gradcam(image_tensor, model, target_layer, image_bytes, verdict)
+            return self._generate_gradcam(image_tensor, model, target_layer, img_256, verdict)
         except Exception:
             logger.exception("Grad-CAM failed")
             return None
 
     # the whole hook lifecycle is held under the lock: a hook registered here
     # fires for any other request passing through the same layer
-    def _generate_gradcam(self, image_tensor, model, target_layer, image_bytes, verdict):
+    def _generate_gradcam(self, image_tensor, model, target_layer, img_256, verdict):
         activations = {}
         gradients = {}
         with self._model_lock:
@@ -249,7 +251,7 @@ class ResultsHandler:
             dtype=np.float32,
         ) / 255.0
         heatmap = (plt.get_cmap('jet')(cam_256)[:, :, :3] * 255).astype(np.uint8)
-        orig = np.array(Image.open(io.BytesIO(image_bytes)).convert("RGB").resize((256, 256)))
+        orig = np.array(img_256)
         blended = (0.55 * orig + 0.45 * heatmap).astype(np.uint8)
         buf = io.BytesIO()
         Image.fromarray(blended).save(buf, format='PNG')
