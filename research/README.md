@@ -3,6 +3,58 @@
 Training and evaluation for the four detectors. Three cumulative stages of
 increasing size, so results can be read as a function of training data volume.
 
+## Read this first
+
+**Nothing here needs retraining to verify a claim.** Every number in the
+dissertation is already in `research/results/`, which is tracked in git. To print
+them all:
+
+```powershell
+python scripts/report_metrics.py
+```
+
+No GPU, no dataset and no model weights are required for that. The
+matched-preprocessing runs are in `results/_preproc/`, which
+`report_metrics.py` does not read; those JSON files are read directly.
+
+The four Stage 3 weights also ship with the application, in
+`app/backend/models/weights/`. Copy them into
+`research/checkpoints/MODEL/stage_3/` to run `visualize.py` or the unseen tests
+without retraining:
+
+| From `app/backend/models/weights/` | To |
+|---|---|
+| `best_cnn.pt` | `research/checkpoints/cnn/stage_3/` |
+| `best_fft.pt` | `research/checkpoints/fft/stage_3/` |
+| `best_hybrid.pt` | `research/checkpoints/hybrid/stage_3/` |
+| `stm_model.joblib` | `research/checkpoints/stm/stage_3/` |
+
+The unseen tests additionally need `data/unseen/`, which is not in the
+repository. See the dataset README for how to obtain it.
+
+## Label contamination
+
+**Roughly 9% of the dataset carries an incorrect label.** `split_dataset.py`
+lists `cifake` under both the real and the fake source maps, and
+`get_images_from_source` recurses, so both labels drew from the same pool: the
+109,858 images under `data/raw/cifake/FAKE/` and `data/raw/cifake/REAL/`
+together. Neither subfolder is filtered by label.
+
+The held-out test set is affected in the same proportion, so the attainable
+accuracy against true labels is about 90.5%, not 100%. It applies equally to
+every model, so comparisons between them are unaffected, but no single model's
+accuracy should be read as its ceiling.
+
+To measure it on the current splits:
+
+```powershell
+python check_cifake_labels.py
+```
+
+Read-only. It matches each copied file back to the raw folder it came from and
+reports the ones that landed under the opposite label, counting names that appear
+in both raw folders separately as untraceable rather than assuming they are wrong.
+
 ## Requirements
 
 - Python 3.14.3
