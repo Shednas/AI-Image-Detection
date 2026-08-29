@@ -16,6 +16,12 @@ from src.models.stm_model import STMFeatureExtractor
 from src.evaluation.metrics import collect_predictions
 from src.training.trainer import STAGE_DATA_DIRS
 
+# the loader applies ImageNet normalisation, so undoing it as if the tensor were
+# in [-1, 1] hands the extractor an image the model never saw. Must stay in step
+# with stm_model.STMDetector._to_uint8_hwc, which is the same arithmetic.
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
 
 # Denormalise tensors back to uint8, extract STM features, and run LightGBM inference
 def collect_stm_predictions(model, extractor, loader, image_size=256):
@@ -26,7 +32,8 @@ def collect_stm_predictions(model, extractor, loader, image_size=256):
         images_np = images.cpu().numpy()
 
         for i in range(len(images_np)):
-            img_array = ((images_np[i].transpose(1, 2, 0) + 1) / 2 * 255).astype(np.uint8)
+            hwc = images_np[i].transpose(1, 2, 0) * IMAGENET_STD + IMAGENET_MEAN
+            img_array = (hwc.clip(0.0, 1.0) * 255).astype(np.uint8)
             features = extractor.extract(img_array)
             prob = model.predict_proba([features])[0, 1]
             all_probs.append(prob)
@@ -135,8 +142,12 @@ def plot_roc_curve(y_true, y_pred_prob, stage, model_type):
 
 # Histogram of model confidence scores split by true class
 def plot_confidence_distribution(predictions, labels, stage, model_type):
-    real_scores = predictions[labels == 0]
-    ai_scores = predictions[labels == 1]
+    # predictions is P(real): training used {ai_generated: 0, real: 1}, so the
+    # sigmoid output is the probability of the positive class, and the axis below
+    # reports P(AI). ImageFolder sorts alphabetically, so 0 is ai_generated.
+    p_ai = 1.0 - predictions
+    real_scores = p_ai[labels == 1]
+    ai_scores = p_ai[labels == 0]
 
     plt.figure(figsize=(10, 6))
     plt.hist(real_scores, bins=20, alpha=0.6, label="Real Images", color="blue", edgecolor="black")
