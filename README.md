@@ -12,9 +12,14 @@ The four detectors are trained on the same data and evaluated on the same splits
 | Model | Approach |
 |---|---|
 | CNN | ResNet-50 backbone fine-tuned on spatial features |
-| FFT | Learned weighting over concentric frequency bands |
+| FFT | Magnitude spectrum split into four concentric bands, each convolved and pooled |
 | Hybrid | Late fusion of the CNN and FFT branches |
 | STM | Handcrafted features (HOG, LBP, DCT, colour, noise) with LightGBM |
+
+FFT carries a learnable weight per band, but it did not train away from its
+uniform initialisation. The Stage 3 weights are 0.2583, 0.2473, 0.2381 and
+0.2562, a maximum deviation of 0.054, so in practice the four bands are averaged
+rather than weighted.
 
 ## Results
 
@@ -41,28 +46,44 @@ the AI class is:
 | FFT | 88.15% | 35.08% |
 
 FFT is the reason this matters. Its 88.15% in the table is the highest recall
-after Hybrid, while it detects only 35% of AI images in distribution, and 85% of
-them from the unseen generators below. Read the two tables together without this
-note and the numbers look contradictory.
+after Hybrid, while it detects only 35% of AI images in distribution. Read the
+two tables together without this note and the numbers look contradictory.
 
 The same models against MNW, 10,000 images from generators absent from the
 training data. All are AI-generated, so the figure is the proportion correctly
 flagged:
 
-| Model | Detection rate |
-|---|---|
-| FFT | 85.20% |
-| STM | 45.37% |
-| CNN | 2.25% |
-| Hybrid | 1.38% |
+| Model | Mismatched preprocessing | Matched preprocessing |
+|---|---|---|
+| FFT | 85.20% | 38.24% |
+| STM | 45.37% | 27.61% |
+| CNN | 2.25% | 10.98% |
+| Hybrid | 1.38% | 10.67% |
 
-The ordering inverts. The two models that score highest in distribution detect
-almost nothing from unseen generators, while the weakest in-distribution model
-is the only one that generalises. This is the central finding of the
-dissertation, and the reason the application exposes all four models rather than
-picking the one with the best headline accuracy.
+The first column evaluates the unseen images as they arrive. The second puts
+them through the same steps the training data went through: RGB, 256x256 LANCZOS,
+JPEG quality 95. The models were trained on images rewritten that way, so the
+first column measures a preprocessing mismatch as well as a generalisation gap.
 
-Every figure above is reproducible from the JSON in `research/results/`.
+The ordering inverts in both columns, so the finding holds: the models that score
+highest in distribution detect least from unseen generators, and the weakest
+in-distribution model generalises best. Its size does not hold. Matched, FFT
+leads CNN by about three and a half times rather than thirty-eight, so most of
+the original gap was measurement error rather than a property of the models.
+
+That correction is itself a finding, and it is the reason the application exposes
+all four models rather than picking the one with the best headline accuracy.
+
+Roughly 9% of the dataset carries an incorrect label, because CIFAKE was
+configured as a source for both classes. The held-out test set is affected in the
+same proportion, so the attainable ceiling is about 90.5% rather than 100%. It
+applies equally to every model, so comparisons between them stand. See
+[research/README.md](research/README.md) for how to measure it.
+
+The underlying JSON for every figure above is in `research/results/`.
+`research/scripts/report_metrics.py` tabulates the held-out and unseen numbers;
+the matched-preprocessing column is in `research/results/_preproc/`, which that
+script does not read.
 
 ## Layout
 
