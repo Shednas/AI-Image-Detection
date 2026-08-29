@@ -256,7 +256,7 @@ export default function AnalyzePage() {
                     {model_name === 'Frequency_FFT' && (
                       <p className="text-xs text-roast mt-1">
                         FFT rarely commits to a verdict. On the held-out test set its P(AI)
-                        never fell below about 33%, and it correctly identified 35% of AI
+                        never fell below about 32%, and it correctly identified 35% of AI
                         images, so treat any FFT result near 50% as weak evidence and
                         compare against another model.
                       </p>
