@@ -255,9 +255,10 @@ export default function AnalyzePage() {
                         after an analysis leaves the old result on screen */}
                     {model_name === 'Frequency_FFT' && (
                       <p className="text-xs text-roast mt-1">
-                        FFT compresses its output: P(AI) never exceeded 67% on the held-out
-                        test set, so a value just above 50% is relatively strong evidence
-                        from this model.
+                        FFT rarely commits to a verdict. On the held-out test set its P(AI)
+                        never fell below about 33%, and it correctly identified 35% of AI
+                        images, so treat any FFT result near 50% as weak evidence and
+                        compare against another model.
                       </p>
                     )}
                   </div>
