@@ -125,8 +125,10 @@ npm run dev
 Before using the application, open http://localhost:8000/api/health and confirm
 it reports `"database": "up"` and all four models `true`.
 
-A missing database does not stop the backend. It starts degraded, so analysis
-appears to work while every result silently fails to save.
+A missing database does not stop the backend. It starts degraded: analysis still
+returns a verdict, `/api/health` reports `"database": "down"` and answers 503,
+and every affected result carries a `warning` field that the interface displays
+above the result.
 
 Then open **http://localhost:5173**.
 
@@ -159,6 +161,10 @@ so the raw sigmoid output is P(real). The conversion happens once, in
 **Why `python -m uvicorn` rather than `uvicorn`.** The `Scripts\*.exe` launchers
 hard-code an absolute path to the interpreter, so they break if the folder is
 moved. The module form does not.
+
+**Known issues.** The interface does not poll `/api/health`, so it does not
+show that the database is down until a result comes back carrying a warning.
+Check the endpoint directly if History is not filling up.
 
 **Running the tests.**
 
