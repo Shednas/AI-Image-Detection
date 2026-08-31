@@ -3,84 +3,76 @@
 Training and evaluation for the four detectors. Three cumulative stages of
 increasing size, so results can be read as a function of training data volume.
 
+---
+
 ## Read this first
 
-**Nothing here needs retraining to verify a claim.** Every number in the
-dissertation is already in `research/results/`, which is tracked in git. To print
-them all:
+**Nothing here needs to be run to verify a claim in the dissertation.** Every
+figure is already in `research/results/`, which is tracked in git. To print them
+all:
 
 ```powershell
 python scripts/report_metrics.py
 ```
 
-No GPU, no dataset and no model weights are required for that. The
-matched-preprocessing runs are in `results/_preproc/`, which
-`report_metrics.py` does not read; those JSON files are read directly.
+No GPU, no dataset and no model weights are needed for that. The
+matched-preprocessing runs live in `results/_preproc/` and are read directly as
+JSON, since `report_metrics.py` does not cover them.
 
-The four Stage 3 weights also ship with the application, in
-`app/backend/models/weights/`. Copy them into
-`research/checkpoints/MODEL/stage_3/` to run `visualize.py` or the unseen tests
-without retraining:
+Everything below is for reproducing those results from scratch.
 
-| From `app/backend/models/weights/` | To |
-|---|---|
-| `best_cnn.pt` | `research/checkpoints/cnn/stage_3/` |
-| `best_fft.pt` | `research/checkpoints/fft/stage_3/` |
-| `best_hybrid.pt` | `research/checkpoints/hybrid/stage_3/` |
-| `stm_model.joblib` | `research/checkpoints/stm/stage_3/` |
+---
 
-The unseen tests additionally need `data/unseen/`, which is not in the
-repository. See the next section.
+## Which route do you need?
 
-### Getting the data
+Pick one. Each row lists what you must download and roughly how long it takes.
 
-The datasets and the trained checkpoints for every stage are in a Google Drive
-folder:
+| Goal | You need | Time |
+|---|---|---|
+| Read the results | Nothing. They are in `results/` | Minutes |
+| Re-run the held-out evaluation and plots | `checkpoints/` and `data/processed/` | 1 to 2 hours |
+| Re-run the unseen-generator evaluation | `checkpoints/` and `data/unseen/` | 6 to 8 hours |
+| Retrain the models | `data/processed/` | 6 to 8 hours |
+| Rebuild the dataset from source | `data/raw/` | 2 to 4 hours, plus download |
+
+Times assume an RTX 3050 with 4GB of VRAM and will vary with hardware and
+network speed.
+
+**You do not need to retrain in order to evaluate.** The trained checkpoints are
+provided.
+
+---
+
+## Downloads
+
+Everything that is not in the repository is in one Google Drive folder:
 
 **[Google Drive folder](https://drive.google.com/drive/folders/1Ozr4LUUvmH9a7LNGHMbamnAF8oJRPCK4)**
 
 The same link is in the NILE submission. About 68GB in total, so allow several
-hours. The README at the root of that folder explains what each part is for and
-where it goes.
+hours. Read the README at the root of that folder before downloading anything.
 
-If you only want to retrain the models, the processed training set alone is
-430MB and is submitted to NILE as `processed_dataset.zip`. Unzip it into
-`data/processed/` and skip the whole Data section below.
+| Folder | Contents | Unzip to |
+|---|---|---|
+| `checkpoints/` | Trained weights for every model at every stage | `research/checkpoints/` |
+| `data/raw/` | The seven source datasets, unprocessed | `research/data/raw/` |
+| `data/processed/` | The training set, already split and preprocessed | `research/data/processed/` |
+| `data/unseen/` | Chameleon and MNW, for unseen-generator evaluation | `research/data/unseen/` |
 
-If you only want to re-run evaluations, take `checkpoints/` from the Drive
-folder, or copy the four Stage 3 weights from the application as shown above.
+`data/processed/` is also submitted separately to NILE as
+`processed_dataset.zip`, which is 430MB rather than the full download.
 
-## Label contamination
-
-**Roughly 9% of the dataset carries an incorrect label.** `split_dataset.py`
-lists `cifake` under both the real and the fake source maps, and
-`get_images_from_source` recurses, so both labels drew from the same pool: the
-109,858 images under `data/raw/cifake/FAKE/` and `data/raw/cifake/REAL/`
-together. Neither subfolder is filtered by label.
-
-The held-out test set is affected in the same proportion, so the attainable
-accuracy against true labels is about 90.5%, not 100%. It applies equally to
-every model, so comparisons between them are unaffected, but no single model's
-accuracy should be read as its ceiling.
-
-To measure it on the current splits:
-
-```powershell
-python check_cifake_labels.py
-```
-
-Read-only. It matches each copied file back to the raw folder it came from and
-reports the ones that landed under the opposite label, counting names that appear
-in both raw folders separately as untraceable rather than assuming they are wrong.
-
-## Requirements
-
-- Python 3.14.3
-- A CUDA GPU. Training on CPU is impractical.
+**If you only want to re-run evaluations**, take `checkpoints/` and
+`data/unseen/`. You can skip `data/raw/` entirely.
 
 ---
 
 ## Setup
+
+Do this regardless of which route you are taking.
+
+**Requirements:** Python 3.14.3, and a CUDA GPU. Training on CPU is
+impractical.
 
 ### Step 1: Create the environment
 
@@ -93,8 +85,8 @@ python -m pip install --upgrade pip
 
 ### Step 2: Install PyTorch
 
-Separately, because an `--index-url` inside `requirements.txt` applies to every
-package in the file rather than just torch.
+Separately from everything else, because an `--index-url` inside
+`requirements.txt` applies to every package in the file rather than just torch.
 
 ```powershell
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
@@ -115,9 +107,11 @@ pip install -r requirements.txt
 python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
 ```
 
-**Every command below** runs from `research/` with the environment activated.
-If you open a new terminal, or the prompt does not start with
-`(dissertation_env)`:
+**Expected:** `True` followed by a CUDA version. If it prints `False`, training
+falls back to CPU and becomes impractical.
+
+**Every command below runs from `research/` with the environment activated.** If
+you open a new terminal, or the prompt does not begin with `(dissertation_env)`:
 
 ```powershell
 cd research
@@ -128,75 +122,106 @@ From the repository root, `cd research` first. From `app/`, `cd ..\research`.
 
 ---
 
-## Data
+## Check before you run anything
 
-The datasets are not tracked in git. `data/raw/`, `data/processed/`,
-`data/unseen/` and `checkpoints/` ship as empty directories with `.gitkeep`
-markers showing where each source belongs.
+Each section below opens with a check. Run it and confirm the expected output
+before continuing. All four are read-only and take seconds.
 
-Follow this section only if you are rebuilding the dataset from its original
-sources. To use the supplied copies instead, see Getting the data above.
+### Check A: the raw dataset is complete
 
-### Step 1: Download the sources
-
-One source is scripted. `download_dataset.py` takes a dataset name, and
-`forensynths` is the only accepted value:
-
-```powershell
-python scripts/download_dataset.py forensynths --target 10000
-```
-
-It also takes `--output-dir` to override the destination, and `--status-only` to
-report what is present without downloading.
-
-The rest are manual, each needing an account or a manual export:
-
-| Source | Destination | Notes |
-|---|---|---|
-| ImageNet | `data/raw/imagenet/` | registration required |
-| COCO | `data/raw/coco/` | `train2017` and `val2017` |
-| CIFAKE | `data/raw/cifake/` | `FAKE/` and `REAL/` |
-| GenImage | `data/raw/genimage/` | one directory per generator |
-| Flickr30k | `data/raw/flickr30k/` | |
-| Unsplash | `data/raw/unsplash/` | save the manifest as `photos.csv000` here, then step 2 |
-| Chameleon | `data/unseen/chameleon/` | `fake/` and `real/` |
-
-MNW is a git repository, so clone it:
-
-```powershell
-git clone https://github.com/nsail-lab/MNW.git data/unseen/MNW
-```
-
-### Step 2: Fetch the Unsplash images
-
-```powershell
-python scripts/extract_unsplash.py --target 4000
-```
-
-The manifest must be named `photos.csv000` and sit in `data/raw/unsplash/`.
-The Unsplash Lite archive ships it tab-separated despite the extension, which is
-what the script expects. Use `--metadata-file` to point elsewhere.
-
-Resumable: already-downloaded URLs are tracked in
-`data/raw/unsplash/downloaded_urls.txt` and skipped. Also takes `--output-dir`,
-`--metadata-file`, `--random-sample`, `--delay`, and `--verify` to count what is
-already present without downloading.
-
-### Step 3: Check what is present
+Only needed if you are rebuilding the dataset from source.
 
 ```powershell
 python scripts/download_dataset.py --status-only
 ```
 
-All seven sources should read OK before continuing.
+**Expected:** all seven sources report OK, with counts close to these.
 
-Two limits of this check. It looks at `data/raw/` only and never at
-`data/unseen/`, so Chameleon and MNW can be missing while it reports everything
-fine, and the failure only surfaces during evaluation. It also reports OK for
-any count above zero, so a partially completed download still passes. Confirm
-the unseen sets by hand.
+| Source | Files |
+|---|---|
+| ImageNet | 50,001 |
+| COCO | 123,289 |
+| Unsplash | 4,003 |
+| GenImage | 122,305 |
+| ForenSynths | 10,001 |
+| CIFAKE | 109,860 |
+| Flickr30k | 31,785 |
 
-### Step 4: Build the splits
+Anything reading NOT FOUND or EMPTY means that source is missing or in the
+wrong folder. Fix it before running `split_dataset.py`.
+
+**This check looks at `data/raw/` only.** It never inspects `data/unseen/`, so
+passing it does not mean the unseen evaluation will work. Use Check C for that.
+
+### Check B: the processed dataset is in place
+
+Needed for training, and for the held-out evaluation.
+
+```powershell
+python -c "from pathlib import Path; [print(s.name, sum(1 for p in s.rglob('*') if p.suffix.lower() in {'.jpg','.jpeg','.png'})) for s in sorted(Path('data/processed').glob('stage_*'))]"
+```
+
+**Expected:** `stage_1 500`, `stage_2 4999`, `stage_3 9998`.
+
+Each folder holds only its own images. The stages are cumulative at load time,
+so training at stage 3 uses all three folders together, giving 15,497 images.
+
+If the command prints nothing at all, `data/processed/` holds no `stage_*`
+folders and the unzip landed in the wrong place. `stage_1` should sit directly
+inside `research/data/processed/`. A stage that is listed but reports zero is
+present and empty.
+
+### Check C: the unseen datasets are in place
+
+Needed for any `test_unseen_*` script.
+
+```powershell
+python -c "from pathlib import Path; [print(p, sum(1 for f in Path(p).rglob('*') if f.suffix.lower() in {'.jpg','.jpeg','.png','.webp'})) for p in ['data/unseen/chameleon/real','data/unseen/chameleon/fake','data/unseen/MNW']]"
+```
+
+**Expected:** roughly `chameleon/real 14863`, `chameleon/fake 11170`,
+`MNW 11290`.
+
+MNW is a git repository rather than a plain folder. If the count is zero after
+cloning, it uses Git LFS and the files are pointers rather than images. Run
+`git lfs install`, then `git lfs pull` inside that folder.
+
+### Check D: the checkpoints are in place
+
+Needed for any evaluation.
+
+```powershell
+python -c "from pathlib import Path; [print(p.parent.parent.name, p.name) for p in sorted(Path('checkpoints').rglob('*')) if p.suffix in {'.pt','.joblib'}]"
+```
+
+**Expected:** at minimum, one file under each of `checkpoints/cnn/stage_3/`,
+`checkpoints/fft/stage_3/`, `checkpoints/hybrid/stage_3/` and
+`checkpoints/stm/stage_3/`.
+
+An empty list means the download did not unzip into the right place, or you are
+not in `research/`.
+
+**A shortcut if you only need Stage 3.** The four Stage 3 weights also ship with
+the application. Copy them across rather than downloading `checkpoints/`:
+
+| From `app/backend/models/weights/` | To |
+|---|---|
+| `best_cnn.pt` | `research/checkpoints/cnn/stage_3/` |
+| `best_fft.pt` | `research/checkpoints/fft/stage_3/` |
+| `best_hybrid.pt` | `research/checkpoints/hybrid/stage_3/` |
+| `stm_model.joblib` | `research/checkpoints/stm/stage_3/` |
+
+Stages 1 and 2 and the variant architectures are only in the Drive folder.
+
+---
+
+## Dataset preparation
+
+**Skip this section if you downloaded `data/processed/`.** It is already done.
+
+Run Check A first.
+
+### Step 1: Build the splits
 
 ```powershell
 python scripts/split_dataset.py --seed 42
@@ -205,7 +230,7 @@ python scripts/split_dataset.py --seed 42
 Produces all three stages in one pass and guarantees no image is reused between
 them. `--seed` is the only argument; there is no `--stage`.
 
-### Step 5: Validate and resize
+### Step 2: Validate and resize
 
 ```powershell
 python scripts/process_data.py --stage 1
@@ -213,24 +238,36 @@ python scripts/process_data.py --stage 2
 python scripts/process_data.py --stage 3
 ```
 
-Also takes `--target-size` (default 256) and `--dry-run` to report without
+Also takes `--target-size`, default 256, and `--dry-run` to report without
 writing or deleting.
 
 **This step is what the models were actually trained on.** Each image is
 converted to RGB, resized to 256x256 with LANCZOS, and re-saved as JPEG quality
-95, in place. It matters for evaluation, see the preprocessing note below.
+95, in place. That matters for evaluation, see `--match_training_preprocessing`
+below.
+
+**Do not run this on a downloaded `data/processed/`.** It rewrites in place, so
+a second pass re-encodes already-encoded files and changes the pixels the models
+were trained on.
 
 Output lands in
 `data/processed/stage_N/{train,validation,test}/{real,ai_generated}/`. That
 directory is derived and is not tracked.
 
+Run Check B afterwards.
+
 ---
 
 ## Training
 
-Every training script takes `--stage`, which accepts 1, 2 or 3 and defaults to 2.
-All except `train_stm` and `train_fft_initial` also take `--epochs` to override
-the per-model default.
+**Skip this section if you downloaded `checkpoints/`.** The trained weights are
+provided.
+
+Run Check B first.
+
+Every training script takes `--stage`, accepting 1, 2 or 3. All default to 2
+except `train_fft_initial`, which defaults to 1. All except `train_stm` and
+`train_fft_initial` also take `--epochs` to override the per-model default.
 
 ```powershell
 python -m src.training.train_cnn --stage 3
@@ -238,6 +275,9 @@ python -m src.training.train_fft --stage 3
 python -m src.training.train_hybrid --stage 3
 python -m src.training.train_stm --stage 3
 ```
+
+All four models at stage 3 takes roughly two hours. All three stages for all
+four models takes roughly a day.
 
 ### Variants kept for comparison
 
@@ -251,7 +291,7 @@ python -m src.training.train_hybrid_proj --stage 3
 It takes `--stage` only.
 
 `train_hybrid_norm` trains `HybridNormDetector`, which L2 normalises both
-branches before concatenation. The two branches are 2048 and 256 dimensions with
+branches before concatenation. The branches are 2048 and 256 dimensions with
 different natural scales, so unnormalised concatenation lets the CNN side
 dominate the fusion input.
 
@@ -268,22 +308,29 @@ variant can overwrite another:
 | `train_hybrid_norm` | `checkpoints/hybrid_norm/stage_N/best_hybrid_norm.pt` | `results/hybrid_norm/stage_N/` |
 | `train_hybrid_proj` | `checkpoints/hybrid_proj/stage_N/best_hybrid_proj.pt` | `results/hybrid_proj/stage_N/` |
 
-Checkpoints are not tracked; results are.
+Checkpoints are not tracked in git; results are.
 
 ---
 
 ## Evaluation
 
+Run Check D first. For the unseen tests, run Check C as well.
+
 ### Held-out test set, plots and metrics
+
+Needs `checkpoints/` and `data/processed/`.
 
 ```powershell
 python -m src.evaluation.visualize --stage 3 --model cnn
 ```
 
-Both arguments are required. `--model` takes `cnn`, `fft`, `hybrid` or `stm`,
-and there is no option for the variant architectures.
+Both arguments are required. `--model` takes `cnn`, `fft`, `hybrid` or `stm`.
+There is no option for the variant architectures.
 
 ### Unseen generators
+
+Needs `checkpoints/` and `data/unseen/`. Roughly 6 to 8 hours for all four
+models across both datasets and all three degradation levels.
 
 ```powershell
 python -m src.evaluation.test_unseen_cnn --stage 3 --dataset all --degradation all --n_samples 10000
@@ -298,7 +345,7 @@ All four share these arguments:
 |---|---|---|
 | `--stage` | 3 | 1, 2 or 3 |
 | `--dataset` | `chameleon` | `chameleon`, `mnw` or `all` |
-| `--degradation` | `none` | `none`, `light`, `heavy` or `all`, JPEG re-encode at quality 75 and 25 |
+| `--degradation` | `none` | `none`, `light`, `heavy` or `all`. JPEG re-encode at quality 75 and 25 |
 | `--n_samples` | 200 | images per class, see the warning below |
 | `--results_dir` | derived from `--stage` | where to write, so a comparison run cannot overwrite a published result |
 | `--match_training_preprocessing` | off | see below |
@@ -307,20 +354,20 @@ All four share these arguments:
 `test_unseen_hybrid` additionally takes `--checkpoint` to load a specific file,
 and `--model_class` accepting `hybrid`, `hybrid_norm` or `hybrid_proj`, which
 selects the architecture to build before loading. The other three load a fixed
-checkpoint: `checkpoints/MODEL/stage_N/`, and STM globs for `*.joblib` there
+path under `checkpoints/MODEL/stage_N/`, and STM globs for `*.joblib` there
 since `train_stm` writes a run-specific filename.
 
 **`test_unseen_fft` does not take a `--model` argument.** It always loads
-`checkpoints/fft/stage_N/best_fft.pt`. Nothing evaluates the `train_fft_initial`
-checkpoint through this path.
+`checkpoints/fft/stage_N/best_fft.pt`. Nothing evaluates the
+`train_fft_initial` checkpoint through this path.
 
 ### `--n_samples` is per class and it matters
 
-It defaults to **200**. Every published result uses **10000**, which gives 10,000
-real and 10,000 AI on Chameleon, and 10,000 AI on MNW. Omitting it produces a
-different, much smaller sample that is not comparable with anything in the
-dissertation. The seed is fixed at 42, so passing the same count reproduces the
-same images.
+It defaults to **200**. Every published result uses **10000**, which gives
+10,000 real and 10,000 AI on Chameleon, and 10,000 AI on MNW. Omitting it
+produces a different, much smaller sample that is not comparable with anything
+in the dissertation. The seed is fixed at 42, so passing the same count
+reproduces the same images.
 
 ### `--match_training_preprocessing`
 
@@ -375,9 +422,11 @@ Runs from any working directory.
 `plots/`, and for stage 3 an `unseen/` directory with the Chameleon and MNW
 evaluations. Headline numbers are in the root [README](../README.md).
 
-`plots/` exists for the four primary models across all three stages, while the
-variant trees and the `_preproc/` runs record metrics only, since `visualize.py`
-covers the four primary models.
+`plots/` exists for the four primary models across all three stages. The variant
+trees and the `_preproc/` runs record metrics only, since `visualize.py` covers
+the four primary models.
+
+### Reading the stored metrics
 
 **Labels follow `{ai_generated: 0, real: 1}` throughout**, so a model's sigmoid
 output is P(real), not P(AI). Every metric in this tree depends on that mapping.
@@ -390,9 +439,39 @@ not stored and must be derived from the confusion matrix as
 `cm[0][0] / sum(cm[0])`.
 
 MNW contains no real images, so ROC AUC is undefined there and precision, recall
-and F1 are zero by construction. Only the detection rate carries information, and
-it appears as `accuracy` in every script except `test_unseen_cnn`, which reports
-it as `detection_rate`.
+and F1 are zero by construction. Only the detection rate carries information,
+and it appears as `accuracy` in every script except `test_unseen_cnn`, which
+reports it as `detection_rate`.
+
+---
+
+## Label contamination
+
+**Roughly 9% of the dataset carries an incorrect label.**
+
+`split_dataset.py` lists `cifake` under both the real and the fake source maps,
+and `get_images_from_source` recurses, so both labels drew from the same pool:
+the 109,858 images under `data/raw/cifake/FAKE/` and `data/raw/cifake/REAL/`
+together. Neither subfolder is filtered by label.
+
+The held-out test set is affected in the same proportion, so attainable accuracy
+against true labels is about 90.5% rather than 100%. It applies equally to every
+model, so comparisons between them are unaffected, but no single model's
+accuracy should be read as its ceiling.
+
+The unseen datasets never pass through this splitter, so all
+out-of-distribution results are unaffected.
+
+To measure it on the current splits:
+
+```powershell
+python check_cifake_labels.py
+```
+
+Read-only. It matches each processed file back to the raw folder it came from
+and reports those that landed under the opposite label, counting names present
+in both raw folders separately as untraceable rather than assuming they are
+wrong.
 
 ---
 

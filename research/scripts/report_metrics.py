@@ -75,13 +75,21 @@ def collect():
             for deg in DEGRADATIONS:
                 r = (d or {}).get("results", {}).get(deg)
                 if r:
-                    # MNW is AI-only, so accuracy is the detection rate
+                    # MNW is AI-only, so accuracy is the detection rate.
+                    # test_unseen_cnn takes an AI-only branch and names the field
+                    # detection_rate; the other three fall through to
+                    # compute_metrics and name it accuracy. The committed files
+                    # all predate that branch, so both spellings must be read or
+                    # a re-run of test_unseen_cnn silently blanks the CNN rows.
+                    rate = r.get("detection_rate")
+                    if rate is None:
+                        rate = r.get("accuracy")
                     rows.append({
                         "table": "mnw",
                         "model": model,
                         "stage": stage,
                         "split": f"mnw/{deg}",
-                        "detection_rate": r.get("accuracy"),
+                        "detection_rate": rate,
                     })
 
     return rows

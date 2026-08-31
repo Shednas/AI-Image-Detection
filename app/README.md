@@ -179,9 +179,13 @@ moved. The module form does not.
 show that the database is down until a result comes back carrying a warning.
 Check the endpoint directly if History is not filling up.
 
-STM logs a LightGBM feature-name warning on every prediction. The model was
-fitted with named columns and is called with a positional array. The feature
-order is identical, so predictions are unaffected. Do not change how the
+Loading STM prints a scikit-learn `InconsistentVersionWarning`. `stm_model.joblib`
+was fitted under scikit-learn 1.8.0, and `requirements.txt` pins no versions, so a
+fresh install unpickles it under a newer one. It appears once, at startup, and
+predictions are unaffected.
+
+STM was fitted with named columns and is called with a positional array. The
+feature order is identical, so predictions are unaffected. Do not change how the
 features are passed: it risks altering predictions for a cosmetic gain.
 
 **Running the tests.** From a fresh terminal at the repository root:
@@ -192,6 +196,12 @@ venv\Scripts\activate
 pip install -r ..\requirements-dev.txt
 pytest
 ```
+
+Without a database, expect **45 passed, 3 skipped, 1 xfailed**. The three skips
+are in `test_history_search.py`, which asserts PostgreSQL `ilike` escaping and
+so skips when `DATABASE_URL` is unset rather than proving nothing against a
+stub. With the database from step 1 reachable they run, giving **48 passed,
+1 xfailed**. The xfail is expected either way. No test should fail.
 
 ---
 

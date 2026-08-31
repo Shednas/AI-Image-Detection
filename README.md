@@ -46,8 +46,8 @@ two tables together without this note and the numbers look contradictory.
 
 FFT carries a learnable weight per band, but it did not train away from its
 uniform initialisation. The Stage 3 weights are 0.2583, 0.2473, 0.2381 and
-0.2562, a maximum deviation of 0.054, so in practice the four bands are averaged
-rather than weighted.
+0.2562, at most 0.0119 away from a uniform 0.25 and spanning 0.0202 end to end,
+so in practice the four bands are averaged rather than weighted.
 
 The same models against MNW, 10,000 images from generators absent from the
 training data. All are AI-generated, so the figure is the proportion correctly
