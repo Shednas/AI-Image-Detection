@@ -30,7 +30,25 @@ without retraining:
 | `stm_model.joblib` | `research/checkpoints/stm/stage_3/` |
 
 The unseen tests additionally need `data/unseen/`, which is not in the
-repository. See the dataset README for how to obtain it.
+repository. See the next section.
+
+### Getting the data
+
+The datasets and the trained checkpoints for every stage are in a Google Drive
+folder:
+
+**[Google Drive folder](https://drive.google.com/drive/folders/1Ozr4LUUvmH9a7LNGHMbamnAF8oJRPCK4)**
+
+The same link is in the NILE submission. About 68GB in total, so allow several
+hours. The README at the root of that folder explains what each part is for and
+where it goes.
+
+If you only want to retrain the models, the processed training set alone is
+430MB and is submitted to NILE as `processed_dataset.zip`. Unzip it into
+`data/processed/` and skip the whole Data section below.
+
+If you only want to re-run evaluations, take `checkpoints/` from the Drive
+folder, or copy the four Stage 3 weights from the application as shown above.
 
 ## Label contamination
 
@@ -103,8 +121,12 @@ Every command below runs from `research/` with the environment activated.
 
 ## Data
 
-No dataset is redistributed here. `data/raw/` and `data/unseen/` ship as empty
-directories with `.gitkeep` markers showing where each source belongs.
+The datasets are not tracked in git. `data/raw/`, `data/processed/`,
+`data/unseen/` and `checkpoints/` ship as empty directories with `.gitkeep`
+markers showing where each source belongs.
+
+Follow this section only if you are rebuilding the dataset from its original
+sources. To use the supplied copies instead, see Getting the data above.
 
 ### Step 1: Download the sources
 
@@ -127,7 +149,7 @@ The rest are manual, each needing an account or a manual export:
 | CIFAKE | `data/raw/cifake/` | `FAKE/` and `REAL/` |
 | GenImage | `data/raw/genimage/` | one directory per generator |
 | Flickr30k | `data/raw/flickr30k/` | |
-| Unsplash | `data/raw/unsplash/` | download the metadata, then step 2 |
+| Unsplash | `data/raw/unsplash/` | save the manifest as `photos.csv000` here, then step 2 |
 | Chameleon | `data/unseen/chameleon/` | `fake/` and `real/` |
 
 MNW is a git repository, so clone it:
@@ -142,6 +164,10 @@ git clone https://github.com/nsail-lab/MNW.git data/unseen/MNW
 python scripts/extract_unsplash.py --target 4000
 ```
 
+The manifest must be named `photos.csv000` and sit in `data/raw/unsplash/`.
+The Unsplash Lite archive ships it tab-separated despite the extension, which is
+what the script expects. Use `--metadata-file` to point elsewhere.
+
 Resumable: already-downloaded URLs are tracked in
 `data/raw/unsplash/downloaded_urls.txt` and skipped. Also takes `--output-dir`,
 `--metadata-file`, `--random-sample`, `--delay`, and `--verify` to count what is
@@ -154,6 +180,12 @@ python scripts/download_dataset.py --status-only
 ```
 
 All seven sources should read OK before continuing.
+
+Two limits of this check. It looks at `data/raw/` only and never at
+`data/unseen/`, so Chameleon and MNW can be missing while it reports everything
+fine, and the failure only surfaces during evaluation. It also reports OK for
+any count above zero, so a partially completed download still passes. Confirm
+the unseen sets by hand.
 
 ### Step 4: Build the splits
 

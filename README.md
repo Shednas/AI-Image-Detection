@@ -16,11 +16,6 @@ The four detectors are trained on the same data and evaluated on the same splits
 | Hybrid | Late fusion of the CNN and FFT branches |
 | STM | Handcrafted features (HOG, LBP, DCT, colour, noise) with LightGBM |
 
-FFT carries a learnable weight per band, but it did not train away from its
-uniform initialisation. The Stage 3 weights are 0.2583, 0.2473, 0.2381 and
-0.2562, a maximum deviation of 0.054, so in practice the four bands are averaged
-rather than weighted.
-
 ## Results
 
 Stage 3, held-out test set drawn from the training distribution:
@@ -49,6 +44,11 @@ FFT is the reason this matters. Its 88.15% in the table is the highest recall
 after Hybrid, while it detects only 35% of AI images in distribution. Read the
 two tables together without this note and the numbers look contradictory.
 
+FFT carries a learnable weight per band, but it did not train away from its
+uniform initialisation. The Stage 3 weights are 0.2583, 0.2473, 0.2381 and
+0.2562, a maximum deviation of 0.054, so in practice the four bands are averaged
+rather than weighted.
+
 The same models against MNW, 10,000 images from generators absent from the
 training data. All are AI-generated, so the figure is the proportion correctly
 flagged:
@@ -65,11 +65,16 @@ them through the same steps the training data went through: RGB, 256x256 LANCZOS
 JPEG quality 95. The models were trained on images rewritten that way, so the
 first column measures a preprocessing mismatch as well as a generalisation gap.
 
-The ordering inverts in both columns, so the finding holds: the models that score
-highest in distribution detect least from unseen generators, and the weakest
-in-distribution model generalises best. Its size does not hold. Matched, FFT
-leads CNN by about three and a half times rather than thirty-eight, so most of
-the original gap was measurement error rather than a property of the models.
+The ordering inverts on MNW in both columns, so that part of the finding holds:
+the models that score highest in distribution detect least from unseen
+generators. Its size does not. Matched, FFT leads CNN by about three and a half
+times rather than thirty-eight, so most of the original gap was measurement
+error rather than a property of the models.
+
+On the second unseen dataset, Chameleon, the picture differs again. Matched, all
+four fall between 57% and 64% ROC AUC, with STM ahead of Hybrid and FFT. The
+difference between the approaches is real but small, and which model leads
+depends on the dataset.
 
 That correction is itself a finding, and it is the reason the application exposes
 all four models rather than picking the one with the best headline accuracy.
@@ -84,6 +89,24 @@ The underlying JSON for every figure above is in `research/results/`.
 `research/scripts/report_metrics.py` tabulates the held-out and unseen numbers;
 the matched-preprocessing column is in `research/results/_preproc/`, which that
 script does not read.
+
+## Datasets
+
+**The application needs no dataset.** Every figure above can be verified from
+`research/results/` without downloading anything.
+
+If you want to retrain the models or re-run the evaluations, the datasets and
+the trained checkpoints for every stage are in a Google Drive folder:
+
+**[Google Drive folder](https://drive.google.com/drive/folders/1Ozr4LUUvmH9a7LNGHMbamnAF8oJRPCK4)**
+
+The same link is in the NILE submission. About 68GB in total, so allow several
+hours. The README at the root of that folder explains what each part is for and
+where it goes.
+
+The processed training set alone, 430MB, is also submitted to NILE as
+`processed_dataset.zip`. That is enough to retrain all four models, and it is
+the same data as the copy on Drive.
 
 ## Layout
 
@@ -119,6 +142,5 @@ disagree with the dissertation.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). This covers the code only. The datasets are
-redistributed by nobody here and must be obtained from their original sources
-under their own licences.
+MIT, see [LICENSE](LICENSE). This covers the code only. The datasets are not
+redistributed here and remain subject to the terms of their original providers.
