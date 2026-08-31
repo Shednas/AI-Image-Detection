@@ -15,7 +15,9 @@ with per-model visualisations and a searchable history.
 
 ## Setup
 
-All commands start from the repository root. Follow the steps in order.
+Follow the steps in order, in a single terminal. Setup starts at the
+repository root, but step 3 leaves you inside `app\backend`, so from there
+on each step says where it expects you to be.
 
 ### Step 1: Create the database
 
@@ -43,6 +45,8 @@ DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/ai_detection
 The database name at the end must match the one created in step 1.
 
 ### Step 3: Install the backend
+
+Open the VS code terminal:
 
 ```powershell
 cd app\backend
@@ -91,8 +95,14 @@ stm_model.joblib
 All four are Stage 3 checkpoints. Other stages produce numbers that disagree
 with the dissertation.
 
-### Step 5: Install the frontend
+### Step 5: Same terminal Install the frontend
 
+```powershell
+cd ..\frontend
+npm install
+```
+
+If New terminal:
 ```powershell
 cd app\frontend
 npm install
@@ -105,9 +115,12 @@ code that runs in the browser. Do not run `npm audit fix`.
 
 ## Run the application
 
-Two terminals, both starting from the repository root.
+Each server holds its terminal, so this needs two. Open two fresh ones
+(in VS Code, **Terminal > New Terminal**). A new terminal opens at the
+repository root, which is where both blocks below start. Do not reuse the
+setup terminal, which is still down in `app\frontend`.
 
-**Terminal 1, backend:**
+**New Terminal 1, backend:**
 
 ```powershell
 cd app\backend
@@ -115,7 +128,7 @@ venv\Scripts\activate
 python -m uvicorn main:app --reload --port 8000
 ```
 
-**Terminal 2, frontend:**
+**New Terminal 2, frontend:**
 
 ```powershell
 cd app\frontend
@@ -166,7 +179,12 @@ moved. The module form does not.
 show that the database is down until a result comes back carrying a warning.
 Check the endpoint directly if History is not filling up.
 
-**Running the tests.**
+STM logs a LightGBM feature-name warning on every prediction. The model was
+fitted with named columns and is called with a positional array. The feature
+order is identical, so predictions are unaffected. Do not change how the
+features are passed: it risks altering predictions for a cosmetic gain.
+
+**Running the tests.** From a fresh terminal at the repository root:
 
 ```powershell
 cd app\backend

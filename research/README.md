@@ -115,7 +115,16 @@ pip install -r requirements.txt
 python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
 ```
 
-Every command below runs from `research/` with the environment activated.
+**Every command below** runs from `research/` with the environment activated.
+If you open a new terminal, or the prompt does not start with
+`(dissertation_env)`:
+
+```powershell
+cd research
+.\dissertation_env\Scripts\Activate.ps1
+```
+
+From the repository root, `cd research` first. From `app/`, `cd ..\research`.
 
 ---
 
