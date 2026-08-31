@@ -12,6 +12,7 @@ figure is already in `research/results/`, which is tracked in git. To print them
 all:
 
 ```powershell
+cd research
 python scripts/report_metrics.py
 ```
 
