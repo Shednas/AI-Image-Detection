@@ -36,7 +36,7 @@ const SECTIONS = [
     items: [
       {
         q: 'Which model should I use?',
-        a: 'There is no safe default. CNN and Hybrid score highest on images resembling the training data, and detect almost nothing from generators absent from it. FFT is the weakest in that first setting and by far the strongest in the second. STM sits between the two and needs no GPU. Run more than one model and compare: when they disagree, that disagreement is itself informative, and it is the most honest signal this tool can give you.',
+        a: 'There is no safe default. CNN and Hybrid score highest on images resembling the training data. On generators absent from training, no model is reliable. On a benchmark of AI images only, FFT flags 38% and CNN 11%. On a balanced benchmark that includes real photographs, STM leads at 63% ROC AUC, then Hybrid at 62%, FFT at 60% and CNN at 57%. Which model looks best depends on whether the benchmark contains real images at all, so treat any single verdict on a modern image as weak evidence. Run more than one model and compare: when they disagree, that disagreement is itself informative, and it is the most honest signal this tool can give you.',
       },
       {
         q: 'What if two models disagree?',
@@ -57,7 +57,7 @@ const SECTIONS = [
       },
       {
         q: 'What happens on newer generators?',
-        a: 'Performance collapses for the spatial models. Tested against 10,000 images from 46 generators none of the models had seen, including Flux, Imagen, DALL-E 3, SDXL and recent MidJourney versions, CNN and Hybrid fell to near zero while FFT held up.',
+        a: 'Performance drops sharply for every model. Tested against 10,000 images from 46 generators none of the models had seen, including Flux, Imagen, DALL-E 3, SDXL and recent MidJourney versions, FFT flagged 38%, STM 28%, CNN 11% and Hybrid 11%. Every model lands far below its held-out accuracy.',
       },
       {
         q: 'Why does that happen?',
@@ -70,7 +70,7 @@ const SECTIONS = [
     items: [
       {
         q: 'What are the actual numbers?',
-        a: 'Against 10,000 images from generators absent from training, all of them AI-generated, the proportion each model correctly flagged was: FFT 85.2%, STM 45.4%, CNN 2.25%, Hybrid 1.38%. The ordering is close to the reverse of the ordering on the held-out test set.',
+        a: 'Two benchmarks, 10,000 images each. MNW is AI-generated only, so a model biased towards saying AI scores well on it without detecting anything: FFT flagged 38%, STM 28%, CNN 11%, Hybrid 11%. Chameleon is balanced, 10,000 real photographs alongside 10,000 AI, and there STM leads at 63% ROC AUC, then Hybrid at 62%, FFT at 60% and CNN at 57%. Which model looks best depends on whether the benchmark contains real images at all.',
       },
       {
         q: 'Is that a bug?',
@@ -99,28 +99,28 @@ const MODELS = [
     full: 'Spatial CNN',
     speed: 'Fast',
     auc: '93.8%',
-    desc: 'ResNet-50 backbone trained to detect spatial irregularities in the pixel domain. Second on accuracy on the held-out test set at 84.4%, and detects 2.25% of images from unseen generators.',
+    desc: 'ResNet-50 backbone trained to detect spatial irregularities in the pixel domain. First on accuracy on the held-out test set at 84.39%, just ahead of Hybrid, which leads on F1 and AUC. Flags 11% on the AI-only unseen benchmark and reaches 57% ROC AUC on the balanced one, the lowest of the four.',
   },
   {
     name: 'FFT',
     full: 'Frequency FFT',
     speed: 'Fast',
     auc: '67.1%',
-    desc: 'Analyses four learned radial frequency bands in the Fourier spectrum. Weakest of the four on the held-out test set, and the only one that holds up on generators absent from training, where it detects 85.2%.',
+    desc: 'Analyses four radial frequency bands in the Fourier spectrum. Weakest of the four on the held-out test set. Flags 38% on the AI-only unseen benchmark, the highest of the four, but reaches only 60% ROC AUC on the balanced one, behind STM and Hybrid.',
   },
   {
     name: 'Hybrid',
     full: 'Hybrid Fusion',
     speed: 'Slower',
     auc: '93.9%',
-    desc: 'Combines 2048-dim CNN spatial features and 256-dim FFT spectral features through a learned fusion network. Leads on AUC and F1 on the held-out test set, and detects the least of any model on unseen generators at 1.38%.',
+    desc: 'Combines 2048-dim CNN spatial features and 256-dim FFT spectral features through a learned fusion network. Leads on AUC and F1 on the held-out test set. Flags 11% on the AI-only unseen benchmark and reaches 62% ROC AUC on the balanced one, second to STM.',
   },
   {
     name: 'STM',
     full: 'Handcrafted STM',
     speed: 'Slowest',
     auc: '83.6%',
-    desc: '1,822 handcrafted features (HOG, LBP, DCT, colour statistics, noise residual) classified by LightGBM. No neural network, runs without a GPU, and detects 45.4% on unseen generators.',
+    desc: '1,822 handcrafted features (HOG, LBP, DCT, colour statistics, noise residual) classified by LightGBM. No neural network and runs without a GPU. Flags 28% on the AI-only unseen benchmark and leads all four at 63% ROC AUC on the balanced one.',
   },
 ]
 
@@ -150,7 +150,7 @@ const PRIVACY = [
 const DATA = [
   {
     q: 'How were the models tested?',
-    a: 'Trained across three cumulative stages totalling 15,500 images, and evaluated on a held-out test set of 2,345 images that the models never saw during training. Every figure quoted in this application comes from that evaluation.',
+    a: 'Trained across three cumulative stages totalling 15,500 images, and evaluated on a held-out test set of 2,345 images that the models never saw during training. Figures for the held-out test set come from that evaluation. Unseen-generator figures come from two separate 10,000-image benchmarks.',
   },
   {
     q: 'What kinds of images can I upload?',
@@ -204,7 +204,7 @@ export default function FaqPage() {
 
       <Section n={7} title="Model reference">
         <p className="text-xs text-roast leading-relaxed mb-4">
-          Trained on 15,500 images across six AI sources and evaluated on a held-out test set of 2,345 images. AUC is from Stage 3. Detection rates are against 10,000 images from generators absent from training.
+          Trained on 15,500 images across six AI sources and evaluated on a held-out test set of 2,345 images. AUC is from Stage 3. Unseen-generator figures are against two separate 10,000-image benchmarks, one AI-only and one balanced.
         </p>
         <div className="space-y-0">
           {MODELS.map((m) => (
